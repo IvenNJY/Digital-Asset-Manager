@@ -1,24 +1,23 @@
 "use client"
 
-import { 
-  Box, 
-  Button, 
-  Card, 
-  Field, 
-  Flex, 
-  Heading, 
-  Input, 
-  Stack, 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Box,
+  Button,
+  Card,
+  Field,
+  Flex,
+  Heading,
+  Input,
+  Stack,
   Text,
   VStack,
-  HStack,
-  Icon,
-  Link
 } from "@chakra-ui/react"
 import { PasswordInput } from "@/components/ui/password-input"
 import { useForm } from "react-hook-form"
-import { FiShield, FiUsers, FiTrendingUp } from "react-icons/fi"
 import ThemeToggle from "./ThemeToggle"
+import { useAuth } from "@/context/AuthContext"
 
 interface FormValues {
   username: string
@@ -26,13 +25,35 @@ interface FormValues {
 }
 
 export default function LoginHero() {
+  const { login, user, loading } = useAuth()
+  const router = useRouter()
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/home")
+    }
+  }, [loading, router, user])
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>()
 
-  const onSubmit = handleSubmit((data) => console.log(data))
+  const onSubmit = handleSubmit(async (data) => {
+    setFormError(null)
+    setIsSubmitting(true)
+    try {
+      await login(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to sign in"
+      setFormError(message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  })
 
   return (
     <Box minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.900' }}>
@@ -130,8 +151,8 @@ export default function LoginHero() {
                     </Field.ErrorText>
                   </Field.Root>
 
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     size="lg"
                     w="full"
                     bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
@@ -146,9 +167,17 @@ export default function LoginHero() {
                     transition="all 0.2s"
                     borderRadius="lg"
                     fontWeight="semibold"
+                    isLoading={isSubmitting || loading}
+                    loadingText="Signing in"
                   >
                     Sign In
                   </Button>
+
+                  {formError && (
+                    <Text color="red.500" fontSize="sm" textAlign="center">
+                      {formError}
+                    </Text>
+                  )}
                 </Stack>
               </form>
 
@@ -162,7 +191,7 @@ export default function LoginHero() {
                   Forgot your password?
                 </Link> */}
                 
-                
+
               
             </VStack>
           </Card.Body>
