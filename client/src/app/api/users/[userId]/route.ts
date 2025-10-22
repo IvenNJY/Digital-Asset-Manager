@@ -40,10 +40,13 @@ async function forwardBackendRequest(
   return NextResponse.json(data, { status: backendResponse.status })
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
-  return forwardBackendRequest(request, params.userId, "update")
+
+export async function PATCH(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
+  const { userId } = await context.params;
+  return forwardBackendRequest(request, userId, "update");
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { userId: string } }) {
-  return forwardBackendRequest(request, params.userId, "delete")
+export async function DELETE(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
+  const { userId } = await context.params;
+  return forwardBackendRequest(request, userId, "delete");
 }
