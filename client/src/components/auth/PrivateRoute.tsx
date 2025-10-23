@@ -99,3 +99,18 @@ export default function PrivateRoute({
     </Center>
   )
 }
+
+/* ✅ NEW HOOK: Allows any component to easily get the authenticated user */
+export function useAuthUser() {
+  const [user, setUser] = useState<CurrentUser | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      const fetchedUser = await fetchCurrentUser()
+      setUser(fetchedUser)
+    }
+    load()
+  }, [])
+
+  return user
+}
