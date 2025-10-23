@@ -1,38 +1,40 @@
-// client/src/app/api/assets/upload/route.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
-export async function POST(req: NextRequest) {
-  // Forward the incoming request (including cookies) to Django
-  const cookie = req.headers.get("cookie") || "";
-  const contentType = req.headers.get("content-type") || undefined;
-    const session = req.cookies.get("sessionid")
-  // Extract csrftoken from cookies if present and forward as X-CSRFToken
-  const csrfMatch = /(?:^|;\s*)csrftoken=([^;]+)/i.exec(cookie || "");
-  const csrfToken = csrfMatch?.[1];
+export async function POST(request: NextRequest) {
+  const session = request.cookies.get("sessionid");
+  const contentType = request.headers.get("content-type") || "multipart/form-data";
 
-  // Note: Next.js's Request.body is a stream; we forward the raw body by using fetch() with req.body
-  const backendResponse = await fetch(`${BACKEND_URL}/api/assets/`, {
+  // 🔄 Forward request to Django's new upload endpoint
+  const backendResponse = await fetch(`${BACKEND_URL}/api/assets/upload/`, {
     method: "POST",
     headers: {
-      // Forward Content-Type with boundary so DRF treats it as multipart/form-data
-      "Content-Type": "application/json",
+      "Content-Type": contentType,
       ...(session ? { Cookie: `sessionid=${session.value}` } : {}),
     },
-    // Forward the body stream directly
-    body: await req.arrayBuffer(), // convert stream to buffer
-    // keep credentials behaviour on the backend side
+    cache: "no-store",
+    body: await request.arrayBuffer(), // forward file upload bytes directly
   });
 
+  // 🧩 Handle the response safely
   const text = await backendResponse.text();
-  const res = new NextResponse(text, {
+  let data: Record<string, unknown>;
+
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    data = { detail: text || "Unexpected response from server." };
+  }
+
+  const res = NextResponse.json(data, {
     status: backendResponse.status,
-    headers: { "Content-Type": backendResponse.headers.get("content-type") ?? "application/json" },
+    headers: {
+      "Content-Type": backendResponse.headers.get("content-type") ?? "application/json",
+    },
   });
 
-  // propagate Set-Cookie (sessionid) if backend returned one (e.g., refresh)
+  // 🔁 Pass Set-Cookie header (for session updates)
   const rawSetCookie = backendResponse.headers.get("set-cookie");
   if (rawSetCookie) res.headers.set("set-cookie", rawSetCookie);
 

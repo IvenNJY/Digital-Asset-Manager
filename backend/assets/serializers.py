@@ -126,6 +126,7 @@ class VersionSerializer(serializers.ModelSerializer):
             "uploaded_by",
             "uploaded_at",
             "changes_note",
+            "upload_file",
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
@@ -163,6 +164,8 @@ class AssetSerializer(serializers.ModelSerializer):
             "current_version_info",
             "metadata",
             "tags",
+
+            
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path", "size_bytes"]
 

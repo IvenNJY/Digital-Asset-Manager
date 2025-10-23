@@ -1,9 +1,11 @@
 "use client"
 
-import UploadPrivateRoute from "@/components/auth/UploadPrivateRoute"
 import AssetUpload from "@/components/AssetUpload/AssetUpload"
+import PrivateRoute from "@/components/auth/PrivateRoute"
 import { useAuthUser } from "@/components/auth/PrivateRoute"
 import { Center, Spinner } from "@chakra-ui/react"
+import Sidebar from "@/components/ui/Sidebar"
+import Header from "@/components/ui/Header"
 
 /**
  * 🧩 AssetUploadPage
@@ -24,8 +26,16 @@ export default function AssetUploadPage() {
 
   // ✅ Only render upload page for authorized roles
   return (
-    <UploadPrivateRoute>
-      <AssetUpload user={user} />
-    </UploadPrivateRoute>
+    <PrivateRoute roles={['admin', 'editor']} redirectTo="/dashboard">
+      {(user) => (
+        <Sidebar user={user}>
+          <Header
+            title="Asset Upload"
+            description="Upload new assets to the library."
+          />
+          <AssetUpload />
+        </Sidebar>
+      )}
+    </PrivateRoute>
   )
 }

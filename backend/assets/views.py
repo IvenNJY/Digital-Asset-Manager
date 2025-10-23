@@ -1,220 +1,182 @@
+import json
 from django.db import transaction, models
-from rest_framework import viewsets, status
-from django.utils.decorators import method_decorator
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.response import Response
-from rest_framework.decorators import action
+from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
 
-from .models import (
-    Folder,
-    Asset,
-    Version,
-    Tag,
-    AssetTag,
-    MetadataField,
-    AssetMetadata,
-)
-from .serializers import (
-    FolderSerializer,
-    AssetSerializer,
-    VersionSerializer,
-    TagSerializer,
-    AssetTagSerializer,
-    MetadataFieldSerializer,
-    AssetMetadataSerializer,
-)
-from .permissions import IsAdminOrEditor
+from .models import Asset, Version, Tag, AssetTag
+from .serializers import AssetSerializer, VersionSerializer
 
 
 # -----------------------------
-# Folder ViewSet
+# Helper: Check user role
 # -----------------------------
-class FolderViewSet(viewsets.ModelViewSet):
-    queryset = Folder.objects.select_related("created_by", "parent_folder").all()
-    serializer_class = FolderSerializer
-    permission_classes = [IsAdminOrEditor]
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+def _is_admin_or_editor(user):
+    return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
 
 
 # -----------------------------
-# Tag ViewSet
+# Upload a new Asset
 # -----------------------------
-class TagViewSet(viewsets.ModelViewSet):
-    queryset = Tag.objects.all()
-    serializer_class = TagSerializer
-    permission_classes = [IsAdminOrEditor]
+@csrf_exempt
+@require_POST
+def upload_asset_view(request):
+    """Handles file uploads from admin/editor users."""
+    if not _is_admin_or_editor(request.user):
+        return JsonResponse({"detail": "Not authorized."}, status=403)
 
+    upload_file = request.FILES.get("upload_file")
+    if not upload_file:
+        return JsonResponse({"detail": "upload_file is required."}, status=400)
 
-# -----------------------------
-# Metadata Field ViewSet
-# -----------------------------
-class MetadataFieldViewSet(viewsets.ModelViewSet):
-    queryset = MetadataField.objects.select_related("created_by").all()
-    serializer_class = MetadataFieldSerializer
-    permission_classes = [IsAdminOrEditor]
+    # Get optional fields
+    name = request.POST.get("name") or upload_file.name
+    asset_type = request.POST.get("asset_type", "other")
+    folder = request.POST.get("folder")
+    description = request.POST.get("description", "")
+    tags_str = request.POST.get("tags")
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-
-# -----------------------------
-#  Asset ViewSet 
-# -----------------------------
-@method_decorator(csrf_exempt, name='dispatch')
-class AssetViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Asset.objects.select_related("uploaded_by", "folder", "current_version")
-        .prefetch_related("asset_tags__tag", "metadata__field")
-        .all()
-    )
-    serializer_class = AssetSerializer
-    permission_classes = [IsAdminOrEditor]
-
-    def perform_create(self, serializer):
-        """Automatically assign uploader."""
-        serializer.save(uploaded_by=self.request.user)
-
-    def create(self, request, *args, **kwargs):
-        """
-         Handles uploading a new asset (Admin/Editor only).
-        Accepts multipart/form-data with fields:
-        - name
-        - asset_type
-        - upload_file (actual file)
-        - folder (optional)
-        - description (optional)
-        - tags (optional, comma-separated string)
-        """
-        upload_file = request.FILES.get("upload_file")
-        if not upload_file:
-            return Response(
-                {"detail": "upload_file is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        with transaction.atomic():
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            asset = serializer.save(uploaded_by=request.user)
-
-            # Store file info in asset fields
-            asset.file_path = asset.upload_file.name
-            asset.size_bytes = upload_file.size
-            asset.save()
-
-            # Create initial version automatically (v1)
-            version = Version.objects.create(
-                asset=asset,
-                version_number=1,
-                file_path=asset.file_path,
-                uploaded_by=request.user,
-                changes_note="Initial upload",
-            )
-
-            asset.current_version = version
-            asset.save(update_fields=["current_version"])
-
-            # Handle tags (comma-separated from frontend)
-            tags_str = request.data.get("tags")
-            if tags_str:
-                tag_names = [t.strip() for t in tags_str.split(',') if t.strip()]
-                for name in tag_names:
-                    tag, _ = Tag.objects.get_or_create(name=name)
-                    AssetTag.objects.get_or_create(asset=asset, tag=tag)
-
-            return Response(
-                AssetSerializer(asset, context={"request": request}).data,
-                status=status.HTTP_201_CREATED,
-            )
-
-    @action(detail=True, methods=["post"], url_path="add-tag")
-    def add_tag(self, request, pk=None):
-        """Attach a tag to an asset."""
-        asset = self.get_object()
-        tag_id = request.data.get("tag_id")
-
-        try:
-            tag = Tag.objects.get(pk=tag_id)
-        except Tag.DoesNotExist:
-            return Response({"detail": "Tag not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        AssetTag.objects.get_or_create(asset=asset, tag=tag)
-        return Response({"detail": f"Tag '{tag.name}' added to asset '{asset.name}'."})
-
-    @action(detail=True, methods=["post"], url_path="remove-tag")
-    def remove_tag(self, request, pk=None):
-        """Detach a tag from an asset."""
-        asset = self.get_object()
-        tag_id = request.data.get("tag_id")
-        AssetTag.objects.filter(asset=asset, tag_id=tag_id).delete()
-        return Response({"detail": "Tag removed."})
-
-    @action(detail=True, methods=["post"], url_path="upload-version")
-    def upload_version(self, request, pk=None):
-        """
-         Upload a new version for an existing asset.
-        Accepts multipart/form-data with:
-        - upload_file
-        - changes_note (optional)
-        """
-        asset = self.get_object()
-        upload_file = request.FILES.get("upload_file")
-        if not upload_file:
-            return Response({"detail": "upload_file is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        changes_note = request.data.get("changes_note", "")
-
-        with transaction.atomic():
-            next_version = (asset.versions.aggregate(models.Max("version_number"))["version_number__max"] or 0) + 1
-
-            version = Version.objects.create(
-                asset=asset,
-                version_number=next_version,
-                upload_file=upload_file,  #updated new file upload field
-                file_path=upload_file.name,
-                uploaded_by=request.user,
-                changes_note=changes_note,
-            )
-
-            asset.current_version = version
-            asset.file_path = version.file_path
-            asset.size_bytes = upload_file.size
-            asset.save(update_fields=["current_version", "file_path", "size_bytes"])
-
-        return Response(
-            VersionSerializer(version, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
+    with transaction.atomic():
+        # Create Asset
+        asset = Asset.objects.create(
+            name=name,
+            asset_type=asset_type,
+            folder_id=folder if folder else None,
+            upload_file=upload_file,
+            uploaded_by=request.user,
+            description=description,
         )
 
+        # File metadata
+        asset.file_path = upload_file.name
+        asset.size_bytes = upload_file.size
+        asset.save()
+
+        # Create initial Version
+        version = Version.objects.create(
+            asset=asset,
+            version_number=1,
+            file_path=asset.file_path,
+            uploaded_by=request.user,
+            changes_note="Initial upload",
+        )
+
+        asset.current_version = version
+        asset.save(update_fields=["current_version"])
+
+        # Handle tags
+        if tags_str:
+            tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+            for name in tag_names:
+                tag, _ = Tag.objects.get_or_create(name=name)
+                AssetTag.objects.get_or_create(asset=asset, tag=tag)
+
+    serializer = AssetSerializer(asset, context={"request": request})
+    return JsonResponse(serializer.data, status=201)
+
 
 # -----------------------------
-# Version ViewSet (Minor update)
+# List all Assets
 # -----------------------------
-class VersionViewSet(viewsets.ModelViewSet):
-    queryset = Version.objects.select_related("asset", "uploaded_by").all()
-    serializer_class = VersionSerializer
-    permission_classes = [IsAdminOrEditor]
+@csrf_exempt
+@require_GET
+def asset_list_view(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Not authenticated."}, status=401)
 
-    def perform_create(self, serializer):
-        """Assign uploader automatically."""
-        serializer.save(uploaded_by=self.request.user)
-
-
-# -----------------------------
-# AssetTag ViewSet
-# -----------------------------
-class AssetTagViewSet(viewsets.ModelViewSet):
-    queryset = AssetTag.objects.select_related("asset", "tag").all()
-    serializer_class = AssetTagSerializer
-    permission_classes = [IsAdminOrEditor]
+    assets = Asset.objects.all().select_related("uploaded_by", "folder")
+    serializer = AssetSerializer(assets, many=True, context={"request": request})
+    return JsonResponse({"assets": serializer.data}, status=200)
 
 
 # -----------------------------
-# AssetMetadata ViewSet
+# Upload a new Version for an Asset
 # -----------------------------
-class AssetMetadataViewSet(viewsets.ModelViewSet):
-    queryset = AssetMetadata.objects.select_related("asset", "field").all()
-    serializer_class = AssetMetadataSerializer
-    permission_classes = [IsAdminOrEditor]
+@csrf_exempt
+@require_POST
+def upload_version_view(request, asset_id):
+    if not _is_admin_or_editor(request.user):
+        return JsonResponse({"detail": "Not authorized."}, status=403)
+
+    try:
+        asset = Asset.objects.get(pk=asset_id)
+    except Asset.DoesNotExist:
+        return JsonResponse({"detail": "Asset not found."}, status=404)
+
+    upload_file = request.FILES.get("upload_file")
+    if not upload_file:
+        return JsonResponse({"detail": "upload_file is required."}, status=400)
+
+    changes_note = request.POST.get("changes_note", "")
+
+    with transaction.atomic():
+        next_version = (asset.versions.aggregate(models.Max("version_number"))["version_number__max"] or 0) + 1
+
+        version = Version.objects.create(
+            asset=asset,
+            version_number=next_version,
+            upload_file=upload_file,
+            file_path=upload_file.name,
+            uploaded_by=request.user,
+            changes_note=changes_note,
+        )
+
+        # Update asset metadata
+        asset.current_version = version
+        asset.file_path = version.file_path
+        asset.size_bytes = upload_file.size
+        asset.save(update_fields=["current_version", "file_path", "size_bytes"])
+
+    serializer = VersionSerializer(version, context={"request": request})
+    return JsonResponse(serializer.data, status=201)
+
+
+# -----------------------------
+# Add a Tag to an Asset
+# -----------------------------
+@csrf_exempt
+@require_POST
+def add_tag_view(request, asset_id):
+    if not _is_admin_or_editor(request.user):
+        return JsonResponse({"detail": "Not authorized."}, status=403)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
+
+    tag_id = payload.get("tag_id")
+    if not tag_id:
+        return JsonResponse({"detail": "tag_id is required."}, status=400)
+
+    try:
+        asset = Asset.objects.get(pk=asset_id)
+        tag = Tag.objects.get(pk=tag_id)
+    except (Asset.DoesNotExist, Tag.DoesNotExist):
+        return JsonResponse({"detail": "Asset or tag not found."}, status=404)
+
+    AssetTag.objects.get_or_create(asset=asset, tag=tag)
+    return JsonResponse({"detail": f"Tag '{tag.name}' added."}, status=200)
+
+
+# -----------------------------
+# Remove a Tag from an Asset
+# -----------------------------
+@csrf_exempt
+@require_POST
+def remove_tag_view(request, asset_id):
+    if not _is_admin_or_editor(request.user):
+        return JsonResponse({"detail": "Not authorized."}, status=403)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
+
+    tag_id = payload.get("tag_id")
+    if not tag_id:
+        return JsonResponse({"detail": "tag_id is required."}, status=400)
+
+    AssetTag.objects.filter(asset_id=asset_id, tag_id=tag_id).delete()
+    return JsonResponse({"detail": "Tag removed."}, status=200)

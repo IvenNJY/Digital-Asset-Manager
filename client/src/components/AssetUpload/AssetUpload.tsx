@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { CurrentUser } from "@/lib/auth";
 import {
   Box,
   Stack,
@@ -20,7 +19,6 @@ import {
 import { FiUploadCloud } from "react-icons/fi";
 import { toaster } from "../ui/toaster";
 
-// ✅ Define interfaces
 interface FolderOption {
   folder_id: number;
   name: string;
@@ -42,11 +40,7 @@ const assetTypeOptions = createListCollection({
   ],
 });
 
-interface AssetUploadProps {
-  user: CurrentUser;
-}
-
-export default function AssetUpload({ user }: AssetUploadProps) {
+export default function AssetUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState("other");
@@ -56,12 +50,12 @@ export default function AssetUpload({ user }: AssetUploadProps) {
   const [tagsText, setTagsText] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 🗂️ Fetch folders for dropdown
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/assets/folders", { credentials: "include" });
+        const res = await fetch("/api/assets/folders/", { credentials: "include" });
         if (!res.ok) return;
-
         const data: FolderResponse[] | { results?: FolderResponse[] } = await res.json();
         const items = Array.isArray(data) ? data : data.results ?? [];
 
@@ -77,6 +71,7 @@ export default function AssetUpload({ user }: AssetUploadProps) {
     })();
   }, []);
 
+  // 📤 Handle upload
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -99,11 +94,9 @@ export default function AssetUpload({ user }: AssetUploadProps) {
       if (folderId) form.append("folder", String(folderId));
       if (tagsText) form.append("tags", tagsText);
 
-      // POST via Next.js proxy so cookies/session are forwarded automatically
-      const res = await fetch("/api/assets/", {
+      const res = await fetch("/api/assets/upload/", {
         method: "POST",
         body: form,
-        credentials: "include",
       });
 
       const data: Record<string, unknown> = await res.json().catch(() => ({}));
@@ -123,6 +116,7 @@ export default function AssetUpload({ user }: AssetUploadProps) {
         closable: true,
       });
 
+      // Reset form
       setFile(null);
       setName("");
       setDescription("");
@@ -140,7 +134,6 @@ export default function AssetUpload({ user }: AssetUploadProps) {
     }
   };
 
-  // Prepare folder options dynamically
   const folderOptions = createListCollection({
     items: [
       { label: "— Root —", value: "" },
@@ -164,12 +157,10 @@ export default function AssetUpload({ user }: AssetUploadProps) {
     >
       <form onSubmit={handleSubmit}>
         <Stack gap={5}>
-          {/* File Upload */}
+          {/* Upload Field */}
           <Field.Root>
             <Field.Label>Upload File</Field.Label>
             <FileUpload.Root
-              maxW="xl"
-              alignItems="stretch"
               maxFiles={1}
               onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
               accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
@@ -191,7 +182,7 @@ export default function AssetUpload({ user }: AssetUploadProps) {
                     {file ? file.name : "Drag & drop or click to upload"}
                   </Box>
                   <Box fontSize="sm" color="fg.muted">
-                    Supported: .glb, .gltf, images, videos, documents
+                    Supported: .glb, .gltf, images, videos, PDFs
                   </Box>
                 </FileUpload.DropzoneContent>
               </FileUpload.Dropzone>
@@ -204,7 +195,7 @@ export default function AssetUpload({ user }: AssetUploadProps) {
             )}
           </Field.Root>
 
-          {/* Asset Name */}
+          {/* Name */}
           <Field.Root>
             <Field.Label>Asset Name</Field.Label>
             <Input
@@ -215,15 +206,13 @@ export default function AssetUpload({ user }: AssetUploadProps) {
             <Field.HelperText>Defaults to file name if left blank</Field.HelperText>
           </Field.Root>
 
-          {/* Asset Type */}
+          {/* Type */}
           <Field.Root>
             <Field.Label>Asset Type</Field.Label>
             <Select.Root
               collection={assetTypeOptions}
               value={[assetType]}
-              onValueChange={({ value }) =>
-                setAssetType((value?.[0] as string) ?? "other")
-              }
+              onValueChange={({ value }) => setAssetType((value?.[0] as string) ?? "other")}
             >
               <Select.HiddenSelect />
               <Select.Control>
@@ -291,9 +280,7 @@ export default function AssetUpload({ user }: AssetUploadProps) {
               onChange={(e) => setTagsText(e.target.value)}
               placeholder="e.g. 3D, Aircraft"
             />
-            <Field.HelperText>
-              Separate multiple tags with commas
-            </Field.HelperText>
+            <Field.HelperText>Separate multiple tags with commas</Field.HelperText>
           </Field.Root>
 
           {/* Description */}

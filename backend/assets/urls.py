@@ -1,25 +1,11 @@
 # assets/urls.py
-from rest_framework.routers import DefaultRouter
-from django.urls import path, include
-from .views import (
-    FolderViewSet,
-    AssetViewSet,
-    VersionViewSet,
-    TagViewSet,
-    AssetTagViewSet,
-    MetadataFieldViewSet,
-    AssetMetadataViewSet,
-)
-
-router = DefaultRouter()
-router.register(r'folders', FolderViewSet, basename='folder')
-router.register(r'', AssetViewSet, basename='asset')
-router.register(r'versions', VersionViewSet, basename='version')
-router.register(r'tags', TagViewSet, basename='tag')
-router.register(r'asset-tags', AssetTagViewSet, basename='assettag')
-router.register(r'metadata-fields', MetadataFieldViewSet, basename='metadatafield')
-router.register(r'asset-metadata', AssetMetadataViewSet, basename='assetmetadata')
+from django.urls import path
+from . import views
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("upload/", views.upload_asset_view, name="upload-asset"),
+    path("list/", views.asset_list_view, name="asset-list"),
+    path("<int:asset_id>/upload-version/", views.upload_version_view, name="upload-version"),
+    path("<int:asset_id>/add-tag/", views.add_tag_view, name="add-tag"),
+    path("<int:asset_id>/remove-tag/", views.remove_tag_view, name="remove-tag"),
 ]
