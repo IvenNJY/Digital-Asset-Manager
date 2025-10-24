@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import AssetCard from './AssetCard'
 import { SimpleGrid, Text } from '@chakra-ui/react'
+import AssetPopover from '../AssetModal/AssetPopover'
 
 interface AssetLoaderProps {
   view: 'grid' | 'list'
@@ -39,13 +39,7 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
       w="full"
     >
       {filteredAssets.map((asset) => (
-        <AssetCard
-          key={asset.id}
-          view={view}
-          url={asset.url}
-          name={asset.name}
-          description={asset.description}
-        />
+        <AssetPopover key={asset.id} asset={asset} view={view} />
       ))}
     </SimpleGrid>
   )
