@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   VStack,
   Box,
@@ -13,25 +13,52 @@ import {
 type AssetType = {
   name: string;
   description?: string;
-  asset_type?: string;   // 👈 made optional
-  uploaded_by?: string;  // 👈 made optional
-  uploaded_at?: string;  // 👈 made optional
+  asset_type?: string;
+  type?: string;
+  uploaded_by?: string;
+  uploaded_at?: string;
   size_bytes?: number;
   folder?: string;
   file_path?: string;
+  url?: string; // Added for fetching size
 };
 
 
 export default function AssetPreview({ asset }: { asset: AssetType }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedAsset, setEditedAsset] = useState(asset);
+  const [size, setSize] = useState<number | undefined>(asset.size_bytes);
 
   const muted = { base: "gray.600", _dark: "gray.400" };
   const mutedBg = { base: "gray.200", _dark: "whiteAlpha.200" };
 
+  useEffect(() => {
+    if (size !== undefined) return;
+
+    const url = asset.url ?? (asset.file_path ? `/media/${asset.file_path}` : '');
+    if (!url) return;
+
+    const fetchSize = async () => {
+      try {
+        // Use HEAD request to get headers without downloading the file
+        const res = await fetch(url, { method: 'HEAD', credentials: 'omit' });
+        if (res.ok) {
+          const contentLength = res.headers.get('Content-Length');
+          if (contentLength) {
+            setSize(Number(contentLength));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch asset size:", error);
+      }
+    };
+
+    fetchSize();
+  }, [asset.url, asset.file_path, size]);
+
   // Format size
   const formatSize = (bytes?: number) => {
-    if (!bytes) return "Unknown";
+    if (bytes === undefined) return "Loading...";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -45,6 +72,9 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
     console.log("Saved:", editedAsset);
     setIsEditing(false);
   };
+
+  const displayType = asset.asset_type ?? asset.type ?? "Unknown";
+  const editableType = editedAsset.asset_type ?? editedAsset.type ?? "other";
 
   return (
     <VStack align="start" w="full" gap={4}>
@@ -82,7 +112,7 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
             <HStack>
               <Text fontWeight="medium">Type:</Text>
               <Badge colorScheme="blue" borderRadius="full" px={2}>
-                {asset.asset_type}
+                {displayType}
               </Badge>
             </HStack>
             <HStack>
@@ -97,7 +127,7 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
             )}
             <HStack>
               <Text fontWeight="medium">Size:</Text>
-              <Text color={muted}>{formatSize(asset.size_bytes)}</Text>
+              <Text color={muted}>{formatSize(size)}</Text>
             </HStack>
             <HStack>
               <Text fontWeight="medium">Uploaded By:</Text>
@@ -145,11 +175,12 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
                 <Text fontWeight="medium">Type</Text>
                 <select
                 name="asset_type"
-                value={editedAsset.asset_type}
+        value={editableType}
                 onChange={(e) =>
                     setEditedAsset({
                     ...editedAsset,
                     asset_type: e.target.value,
+          type: e.target.value,
                     })
                 }
                 style={{

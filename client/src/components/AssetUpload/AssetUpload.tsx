@@ -15,6 +15,8 @@ import {
   Portal,
   Select,
   createListCollection,
+  SimpleGrid,
+  VStack,
 } from "@chakra-ui/react";
 import { FiUploadCloud } from "react-icons/fi";
 import { toaster } from "../ui/toaster";
@@ -146,7 +148,7 @@ export default function AssetUpload() {
 
   return (
     <Box
-      maxW="lg"
+      maxW="full"
       mx="auto"
       mt={8}
       p={6}
@@ -156,56 +158,62 @@ export default function AssetUpload() {
       boxShadow="md"
     >
       <form onSubmit={handleSubmit}>
-        <Stack gap={5}>
-          {/* Upload Field */}
-          <Field.Root>
-            <Field.Label>Upload File</Field.Label>
-            <FileUpload.Root
-              maxFiles={1}
-              onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
-              accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
-            >
-              <FileUpload.HiddenInput />
-              <FileUpload.Dropzone
-                borderStyle="dashed"
-                borderWidth="2px"
-                borderColor="gray.300"
-                borderRadius="md"
-                p={8}
-                _hover={{ borderColor: "blue.400", bg: "blue.50" }}
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap={8} alignItems="start" w="full">
+          <Box>
+            <VStack gap={3}>
+            {/* Upload Field */}
+            <Field.Root>
+              <Field.Label>Upload File</Field.Label>
+              <FileUpload.Root
+                maxFiles={1}
+                onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
+                accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
               >
-                <Icon boxSize={8} color="fg.muted">
-                  <FiUploadCloud />
-                </Icon>
-                <FileUpload.DropzoneContent>
-                  <Box fontWeight="medium">
-                    {file ? file.name : "Drag & drop or click to upload"}
-                  </Box>
-                  <Box fontSize="sm" color="fg.muted">
-                    Supported: .glb, .gltf, images, videos, PDFs
-                  </Box>
-                </FileUpload.DropzoneContent>
-              </FileUpload.Dropzone>
-              <FileUpload.List />
-            </FileUpload.Root>
-            {file && (
-              <Text fontSize="sm" color="green.500" mt={2}>
-                Selected file: {file.name}
-              </Text>
-            )}
-          </Field.Root>
-
-          {/* Name */}
-          <Field.Root>
-            <Field.Label>Asset Name</Field.Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Optional asset name"
-            />
-            <Field.HelperText>Defaults to file name if left blank</Field.HelperText>
-          </Field.Root>
-
+                <FileUpload.HiddenInput />
+                <FileUpload.Dropzone
+                  borderStyle="dashed"
+                  borderWidth="2px"
+                  borderColor="gray.300"
+                  borderRadius="md"
+                  w="full"
+                  h="100%"
+                  p={8}
+                  _hover={{ borderColor: "blue.400", bg: "blue.50" }}
+                >
+                  <Icon boxSize={8} color="fg.muted">
+                    <FiUploadCloud />
+                  </Icon>
+                  <FileUpload.DropzoneContent>
+                    <Box fontWeight="medium">
+                      {file ? file.name : "Drag & drop or click to upload"}
+                    </Box>
+                    <Box fontSize="sm" color="fg.muted">
+                      Supported: .glb, .gltf, images, videos, PDFs
+                    </Box>
+                  </FileUpload.DropzoneContent>
+                </FileUpload.Dropzone>
+                <FileUpload.List />
+              </FileUpload.Root>
+              {file && (
+                <Text fontSize="sm" color="green.500" mt={2}>
+                  Selected file: {file.name}
+                </Text>
+              )}
+            </Field.Root>
+            {/* Name */}
+            <Field.Root>
+              <Field.Label>Asset Name</Field.Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Optional asset name"
+              />
+              <Field.HelperText>Defaults to file name if left blank</Field.HelperText>
+            </Field.Root>
+            </VStack>
+          </Box>
+          <Box>
+          <VStack gap={3} align="stretch">
           {/* Type */}
           <Field.Root>
             <Field.Label>Asset Type</Field.Label>
@@ -294,7 +302,7 @@ export default function AssetUpload() {
           </Field.Root>
 
           {/* Submit */}
-          <Button type="submit" colorScheme="blue" disabled={loading}>
+          <Button mt={5} type="submit" colorScheme="blue" disabled={loading}>
             {loading ? (
               <>
                 <Spinner size="sm" mr={2} /> Uploading...
@@ -303,7 +311,9 @@ export default function AssetUpload() {
               "Upload Asset"
             )}
           </Button>
-        </Stack>
+          </VStack>
+          </Box>
+        </SimpleGrid>
       </form>
     </Box>
   );

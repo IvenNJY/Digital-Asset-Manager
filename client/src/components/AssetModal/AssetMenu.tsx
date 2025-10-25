@@ -1,15 +1,11 @@
 import React, { useState } from 'react'
 import {
-  Badge,
   Card,
   Image,
-  VStack,
   HStack,
   Button,
   Flex,
   Box,
-  Text,
-  Table,
 } from '@chakra-ui/react'
 import { FiDownload, FiTrash } from 'react-icons/fi'
 import SwitchView from './SwitchView' // relative path
@@ -28,6 +24,10 @@ type Asset = {
   description: string
   type: string
   url: string
+  file_path?: string
+  uploaded_by?: string
+  uploaded_at?: string
+  size_bytes?: number
 }
 
 type Action = 'preview' | 'metadata' | 'versions'
@@ -38,10 +38,9 @@ interface Props {
 }
 
 export default function AssetMenu({ asset, onClose }: Props) {
-  const { url, name, description, type } = asset
+  const { url, name } = asset
   const [active, setActive] = useState<Action>('preview')
   const muted = { base: 'gray.600', _dark: 'gray.400' }
-  const mutedBg = { base: 'gray.200', _dark: 'whiteAlpha.400' }
 
 const versions = [
   {

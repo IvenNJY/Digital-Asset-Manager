@@ -5,9 +5,12 @@ type AssetCardProps = {
   url: string
   name: string
   description: string
+  asset_type: string
+  uploaded_by?: string
+  uploaded_at?: string
 }
 
-export default function AssetCard({ view = "grid", url, name, description }: AssetCardProps) {
+export default function AssetCard({ view = "grid", url, name, description, asset_type, uploaded_by, uploaded_at }: AssetCardProps) {
   if (view === "list") {
     return (
       <Card.Root
