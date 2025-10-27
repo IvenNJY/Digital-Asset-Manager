@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
-from .models import Asset, Version, Tag, AssetTag
+from .models import Asset, AssetMetadata, Version, Tag, AssetTag, MetadataField
 from .serializers import AssetSerializer, VersionSerializer
 
 
@@ -180,3 +180,86 @@ def remove_tag_view(request, asset_id):
 
     AssetTag.objects.filter(asset_id=asset_id, tag_id=tag_id).delete()
     return JsonResponse({"detail": "Tag removed."}, status=200)
+
+@csrf_exempt
+@require_POST
+def upload_asset_view(request):
+    if not _is_admin_or_editor(request.user):
+        return JsonResponse({"detail": "Not authorized."}, status=403)
+
+    upload_file = request.FILES.get("upload_file")
+    if not upload_file:
+        return JsonResponse({"detail": "upload_file is required."}, status=400)
+
+    # Get optional fields
+    name = request.POST.get("name") or upload_file.name
+    asset_type = request.POST.get("asset_type", "other")
+    folder = request.POST.get("folder")
+    description = request.POST.get("description", "")
+    tags_str = request.POST.get("tags")
+
+    # parse metadata JSON if present
+    metadata_json = request.POST.get("metadata")
+    metadata_items = []
+    if metadata_json:
+        try:
+            metadata_items = json.loads(metadata_json)
+        except json.JSONDecodeError:
+            return JsonResponse({"detail": "Invalid metadata JSON."}, status=400)
+
+    with transaction.atomic():
+        # Create Asset
+        asset = Asset.objects.create(
+            name=name,
+            asset_type=asset_type,
+            folder_id=folder if folder else None,
+            upload_file=upload_file,
+            uploaded_by=request.user,
+            description=description,
+        )
+
+        # File metadata
+        asset.file_path = upload_file.name
+        asset.size_bytes = upload_file.size
+        asset.save()
+
+        # Create initial Version
+        version = Version.objects.create(
+            asset=asset,
+            version_number=1,
+            file_path=asset.file_path,
+            uploaded_by=request.user,
+            changes_note="Initial upload",
+        )
+        asset.current_version = version
+        asset.save(update_fields=["current_version"])
+
+        # Handle tags
+        if tags_str:
+            tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+            for tag_name in tag_names:
+                tag_obj, _ = Tag.objects.get_or_create(name=tag_name)
+                AssetTag.objects.get_or_create(asset=asset, tag=tag_obj)
+
+        # Handle metadata items
+        for item in metadata_items:
+            key = item.get("key")
+            val = item.get("value")
+            dtype = item.get("data_type")
+            if not key:
+                continue  # skip any empty key
+            # find or create MetadataField
+            mf, _ = MetadataField.objects.get_or_create(
+                name=key,
+                defaults={"data_type": dtype, "created_by": request.user}
+            )
+            # If existing field but data_type mismatch, you might choose to reject or update
+            # Save asset metadata
+            AssetMetadata.objects.create(
+                asset=asset,
+                field=mf,
+                value=str(val)
+            )
+
+    serializer = AssetSerializer(asset, context={"request": request})
+    return JsonResponse(serializer.data, status=201)
