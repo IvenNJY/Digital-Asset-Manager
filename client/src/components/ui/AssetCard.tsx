@@ -8,9 +8,14 @@ type AssetCardProps = {
   asset_type: string
   uploaded_by?: string
   uploaded_at?: string
+  tags?: string[]
 }
 
-export default function AssetCard({ view = "grid", url, name, description, asset_type, uploaded_by, uploaded_at }: AssetCardProps) {
+export default function AssetCard({ view = "grid", url, name, description, asset_type, uploaded_by, uploaded_at, tags = [] }: AssetCardProps) {
+  const badgeLabels = tags.length ? tags : [asset_type || "Company Asset"]
+  const uploadedAtLabel = uploaded_at
+    ? uploaded_at.replace("T", " ").replace("Z", " UTC")
+    : ""
   if (view === "list") {
     return (
       <Card.Root
@@ -34,10 +39,21 @@ export default function AssetCard({ view = "grid", url, name, description, asset
           <Card.Description>
             {description}
           </Card.Description>
+          {(uploaded_by || uploaded_at) && (
+            <Card.Description fontSize="sm" color="gray.500">
+              {uploaded_by && `Uploaded by ${uploaded_by}`}
+              {uploaded_by && uploaded_at && " • "}
+              {uploadedAtLabel && `On ${uploadedAtLabel}`}
+            </Card.Description>
+          )}
         </Card.Body>
         <Card.Footer gap="2">
-          <VStack justify="space-between" w="full">
-            <Badge size="md">Company Asset</Badge>
+          <VStack justify="space-between" w="full" align="start">
+            {badgeLabels.map((tag) => (
+              <Badge key={tag} size="sm">
+                {tag}
+              </Badge>
+            ))}
           </VStack>
         </Card.Footer>
       </Card.Root>
@@ -68,8 +84,12 @@ export default function AssetCard({ view = "grid", url, name, description, asset
           </Card.Description>
         </Card.Body>
         <Card.Footer gap="2">
-          <HStack justify="space-between" w="full">
-            <Badge size="md">Company Asset</Badge>
+          <HStack justify="flex-start" w="full" flexWrap="wrap" gap="1">
+            {badgeLabels.map((tag) => (
+              <Badge key={tag} size="sm">
+                {tag}
+              </Badge>
+            ))}
           </HStack>
         </Card.Footer>
       </Card.Root>

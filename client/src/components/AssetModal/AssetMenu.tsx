@@ -13,11 +13,6 @@ import VersionHistory from './VersionHistory' // relative path
 import AssetPreview from './AssetPreview' // relative path
 import AssetMetadata from './AssetMetadata'
 
-const assetMetadata = [
-  { key: "Project Asset", value: "Racing game asset", data_type: "string" },
-  { key: "Polycount", value: "12345", data_type: "integer" },
-];
-
 type Asset = {
   id: number
   name: string
@@ -28,6 +23,12 @@ type Asset = {
   uploaded_by?: string
   uploaded_at?: string
   size_bytes?: number
+  metadata: Array<{
+    key: string
+    value: string
+    data_type: string
+  }>
+  tags: string[]
 }
 
 type Action = 'preview' | 'metadata' | 'versions'
@@ -144,7 +145,7 @@ const versions = [
           )}
 
           {active === 'metadata' && (
-            <AssetMetadata metadata={assetMetadata}/>
+            <AssetMetadata metadata={asset.metadata} />
           )}
 
           {active === 'versions' && (

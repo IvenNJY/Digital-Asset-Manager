@@ -8,7 +8,7 @@ import {
   Input,
   IconButton
 } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiX, FiPlus } from "react-icons/fi"; 
 
 type MetadataItem = {
@@ -25,6 +25,10 @@ type AssetMetadataProps = {
 export default function AssetMetadata({ metadata }: AssetMetadataProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedAsset, setEditedAsset] = useState<MetadataItem[]>(metadata);
+
+  useEffect(() => {
+    setEditedAsset(metadata);
+  }, [metadata]);
 
 
   // --- Delete function ---
@@ -71,18 +75,26 @@ export default function AssetMetadata({ metadata }: AssetMetadataProps) {
 
       {!isEditing ? (
         // --- View Mode ---
-        <Table.Root variant="line" size="sm" w="full">
-          <Table.Body>
-            {editedAsset.map((item, index) => (
-              <Table.Row key={index}>
-                <Table.Cell fontWeight="semibold" w="30%">
-                  {item.key}
-                </Table.Cell>
-                <Table.Cell>{item.value}</Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
+        editedAsset.length === 0 ? (
+          <Box py={2} w="full">
+            <Text fontSize="sm" color="gray.500">
+              No metadata available yet.
+            </Text>
+          </Box>
+        ) : (
+          <Table.Root variant="line" size="sm" w="full">
+            <Table.Body>
+              {editedAsset.map((item, index) => (
+                <Table.Row key={index}>
+                  <Table.Cell fontWeight="semibold" w="30%">
+                    {item.key}
+                  </Table.Cell>
+                  <Table.Cell>{item.value}</Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        )
       ) : (
         // --- Edit Mode ---
         <VStack w="full" gap={3}>
