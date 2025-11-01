@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Image,
@@ -22,6 +22,7 @@ import AssetPreview from './AssetPreview';
 import AssetMetadata from './AssetMetadata';
 import { Version } from './type';
 import { toaster } from '@/components/ui/toaster';
+import { useAuthUser } from '@/components/auth/PrivateRoute';
 
 type Asset = {
   id: number;
@@ -73,6 +74,11 @@ export default function AssetMenu({ asset, onClose }: Props) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [isLoadingVersions, setIsLoadingVersions] = useState(true);
   const muted = { base: 'gray.600', _dark: 'gray.400' };
+  const authUser = useAuthUser();
+  const canManageAssets = useMemo(() => {
+    const role = authUser?.role?.toLowerCase() ?? null;
+    return role === 'admin' || role === 'editor';
+  }, [authUser?.role]);
 
   // Fetch versions
   useEffect(() => {
@@ -219,50 +225,51 @@ export default function AssetMenu({ asset, onClose }: Props) {
               </Button>
 
               {/* DELETE BUTTON + DIALOG */}
-              <Dialog.Root role="alertdialog" onOpenChange={(open) => {
-  }}>
-                <Dialog.Trigger asChild>
-                  <Button
-                    size="sm"
-                    color={{ base: "black", _dark: "white" }}
-                    bg="red.600"
-                    borderColor={{ base: 'blackAlpha.500', _dark: 'redAlpha.900' }}
-                    _hover={{ bg: { base: 'red.500', _dark: 'red.500' } }}
-                  >
-                    <FiTrash />
-                  </Button>
-                </Dialog.Trigger>
+              {canManageAssets && (
+                <Dialog.Root role="alertdialog">
+                  <Dialog.Trigger asChild>
+                    <Button
+                      size="sm"
+                      color={{ base: "black", _dark: "white" }}
+                      bg="red.600"
+                      borderColor={{ base: 'blackAlpha.500', _dark: 'redAlpha.900' }}
+                      _hover={{ bg: { base: 'red.500', _dark: 'red.500' } }}
+                    >
+                      <FiTrash />
+                    </Button>
+                  </Dialog.Trigger>
 
-                <Portal>
-                  <Dialog.Backdrop />
-                  <Dialog.Positioner zIndex="popover">
-                    <Dialog.Content>
-                      <Dialog.Header>
-                        <Dialog.Title>Delete Asset?</Dialog.Title>
-                      </Dialog.Header>
-                      <Dialog.Body>
-                        <p>
-                          This action <strong>cannot be undone</strong>. This will permanently delete
-                          <strong> "{name}"</strong> and all its versions.
-                        </p>
-                      </Dialog.Body>
-                      <Dialog.Footer>
-                        <Dialog.ActionTrigger asChild>
-                          <Button variant="outline">Cancel</Button>
-                        </Dialog.ActionTrigger>
-                        <Dialog.ActionTrigger asChild>
-                          <Button colorPalette="red" onClick={handleDelete}>
-                            Delete
-                          </Button>
-                        </Dialog.ActionTrigger>
-                      </Dialog.Footer>
-                      <Dialog.CloseTrigger asChild>
-                        <CloseButton size="sm" />
-                      </Dialog.CloseTrigger>
-                    </Dialog.Content>
-                  </Dialog.Positioner>
-                </Portal>
-              </Dialog.Root>
+                  <Portal>
+                    <Dialog.Backdrop />
+                    <Dialog.Positioner zIndex="popover">
+                      <Dialog.Content>
+                        <Dialog.Header>
+                          <Dialog.Title>Delete Asset?</Dialog.Title>
+                        </Dialog.Header>
+                        <Dialog.Body>
+                          <p>
+                            This action <strong>cannot be undone</strong>. This will permanently delete
+                            <strong> {name}</strong> and all its versions.
+                          </p>
+                        </Dialog.Body>
+                        <Dialog.Footer>
+                          <Dialog.ActionTrigger asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </Dialog.ActionTrigger>
+                          <Dialog.ActionTrigger asChild>
+                            <Button colorPalette="red" onClick={handleDelete}>
+                              Delete
+                            </Button>
+                          </Dialog.ActionTrigger>
+                        </Dialog.Footer>
+                        <Dialog.CloseTrigger asChild>
+                          <CloseButton size="sm" />
+                        </Dialog.CloseTrigger>
+                      </Dialog.Content>
+                    </Dialog.Positioner>
+                  </Portal>
+                </Dialog.Root>
+              )}
             </HStack>
           </HStack>
         </Flex>
