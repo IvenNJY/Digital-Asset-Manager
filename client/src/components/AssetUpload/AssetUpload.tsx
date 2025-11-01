@@ -15,8 +15,14 @@ import {
   Portal,
   Select,
   createListCollection,
+  SimpleGrid,
+  VStack,
+  Tabs,
+  HStack,
+  Table,
+  IconButton,
 } from "@chakra-ui/react";
-import { FiUploadCloud } from "react-icons/fi";
+import { FiUploadCloud, FiPlus, FiX } from "react-icons/fi";
 import { toaster } from "../ui/toaster";
 
 interface FolderOption {
@@ -28,6 +34,12 @@ interface FolderResponse {
   id?: number;
   folder_id?: number;
   name: string;
+}
+
+interface MetadataItem {
+  key: string;
+  value: string;
+  data_type: string;
 }
 
 const assetTypeOptions = createListCollection({
@@ -49,6 +61,10 @@ export default function AssetUpload() {
   const [folders, setFolders] = useState<FolderOption[]>([]);
   const [tagsText, setTagsText] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ✅ Custom metadata
+  const [metadata, setMetadata] = useState<MetadataItem[]>([]);
+  const [isEditingMeta, setIsEditingMeta] = useState(true);
 
   // 🗂️ Fetch folders for dropdown
   useEffect(() => {
@@ -72,8 +88,8 @@ export default function AssetUpload() {
   }, []);
 
   // 📤 Handle upload
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
 
     if (!file) {
       toaster.create({
@@ -93,6 +109,8 @@ export default function AssetUpload() {
       if (description) form.append("description", description);
       if (folderId) form.append("folder", String(folderId));
       if (tagsText) form.append("tags", tagsText);
+      if (metadata.length > 0)
+        form.append("metadata", JSON.stringify(metadata));
 
       const res = await fetch("/api/assets/upload/", {
         method: "POST",
@@ -122,6 +140,7 @@ export default function AssetUpload() {
       setDescription("");
       setTagsText("");
       setFolderId("");
+      setMetadata([]);
     } catch (err) {
       console.error("Upload error", err);
       toaster.create({
@@ -132,6 +151,15 @@ export default function AssetUpload() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🧠 Metadata handlers
+  const handleAddMetadata = () => {
+    setMetadata((prev) => [...prev, { key: "", value: "", data_type: "string" }]);
+  };
+
+  const handleDeleteMetadata = (index: number) => {
+    setMetadata((prev) => prev.filter((_, i) => i !== index));
   };
 
   const folderOptions = createListCollection({
@@ -146,7 +174,7 @@ export default function AssetUpload() {
 
   return (
     <Box
-      maxW="lg"
+      maxW="full"
       mx="auto"
       mt={8}
       p={6}
@@ -155,156 +183,318 @@ export default function AssetUpload() {
       bg={{ base: "white", _dark: "gray.900" }}
       boxShadow="md"
     >
-      <form onSubmit={handleSubmit}>
-        <Stack gap={5}>
-          {/* Upload Field */}
-          <Field.Root>
-            <Field.Label>Upload File</Field.Label>
-            <FileUpload.Root
-              maxFiles={1}
-              onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
-              accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
-            >
-              <FileUpload.HiddenInput />
-              <FileUpload.Dropzone
-                borderStyle="dashed"
-                borderWidth="2px"
-                borderColor="gray.300"
-                borderRadius="md"
-                p={8}
-                _hover={{ borderColor: "blue.400", bg: "blue.50" }}
-              >
-                <Icon boxSize={8} color="fg.muted">
-                  <FiUploadCloud />
-                </Icon>
-                <FileUpload.DropzoneContent>
-                  <Box fontWeight="medium">
-                    {file ? file.name : "Drag & drop or click to upload"}
-                  </Box>
-                  <Box fontSize="sm" color="fg.muted">
-                    Supported: .glb, .gltf, images, videos, PDFs
-                  </Box>
-                </FileUpload.DropzoneContent>
-              </FileUpload.Dropzone>
-              <FileUpload.List />
-            </FileUpload.Root>
-            {file && (
-              <Text fontSize="sm" color="green.500" mt={2}>
-                Selected file: {file.name}
-              </Text>
-            )}
-          </Field.Root>
+      <Tabs.Root defaultValue="upload">
+        <Tabs.List mb={4}>
+          <Tabs.Trigger value="upload">Upload Preview</Tabs.Trigger>
+          <Tabs.Trigger value="metadata">Custom Metadata</Tabs.Trigger>
+        </Tabs.List>
 
-          {/* Name */}
-          <Field.Root>
-            <Field.Label>Asset Name</Field.Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Optional asset name"
-            />
-            <Field.HelperText>Defaults to file name if left blank</Field.HelperText>
-          </Field.Root>
+        {/* --- Upload Preview Tab --- */}
+        <Tabs.Content value="upload">
+          <form onSubmit={handleSubmit}>
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={8} alignItems="start" w="full">
+              <Box>
+                <VStack gap={3}>
+                  {/* Upload Field */}
+                  <Field.Root>
+                    <Field.Label>Upload File</Field.Label>
+                    <FileUpload.Root
+                      maxFiles={1}
+                      onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
+                      accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
+                    >
+                      <FileUpload.HiddenInput />
+                      <FileUpload.Dropzone
+                        borderStyle="dashed"
+                        borderWidth="2px"
+                        borderColor="gray.300"
+                        borderRadius="md"
+                        w="full"
+                        h="100%"
+                        p={8}
+                        _hover={{ borderColor: "blue.400", bg: "blue.50" }}
+                      >
+                        <Icon boxSize={8} color="fg.muted">
+                          <FiUploadCloud />
+                        </Icon>
+                        <FileUpload.DropzoneContent>
+                          <Box fontWeight="medium">
+                            {file ? file.name : "Drag & drop or click to upload"}
+                          </Box>
+                          <Box fontSize="sm" color="fg.muted">
+                            Supported: .glb, .gltf, images, videos, PDFs
+                          </Box>
+                        </FileUpload.DropzoneContent>
+                      </FileUpload.Dropzone>
+                      <FileUpload.List />
+                    </FileUpload.Root>
+                    {file && (
+                      <Text fontSize="sm" color="green.500" mt={2}>
+                        Selected file: {file.name}
+                      </Text>
+                    )}
+                  </Field.Root>
 
-          {/* Type */}
-          <Field.Root>
-            <Field.Label>Asset Type</Field.Label>
-            <Select.Root
-              collection={assetTypeOptions}
-              value={[assetType]}
-              onValueChange={({ value }) => setAssetType((value?.[0] as string) ?? "other")}
-            >
-              <Select.HiddenSelect />
-              <Select.Control>
-                <Select.Trigger>
-                  <Select.ValueText placeholder="Select asset type" />
-                </Select.Trigger>
-                <Select.IndicatorGroup>
-                  <Select.Indicator />
-                </Select.IndicatorGroup>
-              </Select.Control>
-              <Portal>
-                <Select.Positioner>
-                  <Select.Content>
-                    {assetTypeOptions.items.map((item) => (
-                      <Select.Item item={item} key={item.value}>
-                        {item.label}
-                        <Select.ItemIndicator />
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Positioner>
-              </Portal>
-            </Select.Root>
-          </Field.Root>
+                  {/* Name */}
+                  <Field.Root>
+                    <Field.Label>Asset Name</Field.Label>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Optional asset name"
+                    />
+                    <Field.HelperText>Defaults to file name if left blank</Field.HelperText>
+                  </Field.Root>
+                </VStack>
+              </Box>
 
-          {/* Folder */}
-          <Field.Root>
-            <Field.Label>Folder (optional)</Field.Label>
-            <Select.Root
-              collection={folderOptions}
-              value={[folderId ? String(folderId) : ""]}
-              onValueChange={({ value }) =>
-                setFolderId(value?.[0] ? Number(value[0]) : "")
-              }
-            >
-              <Select.HiddenSelect />
-              <Select.Control>
-                <Select.Trigger>
-                  <Select.ValueText placeholder="— Root —" />
-                </Select.Trigger>
-                <Select.IndicatorGroup>
-                  <Select.Indicator />
-                </Select.IndicatorGroup>
-              </Select.Control>
-              <Portal>
-                <Select.Positioner>
-                  <Select.Content>
-                    {folderOptions.items.map((item) => (
-                      <Select.Item item={item} key={item.value}>
-                        {item.label}
-                        <Select.ItemIndicator />
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Positioner>
-              </Portal>
-            </Select.Root>
-          </Field.Root>
+              <Box>
+                <VStack gap={3} align="stretch">
+                  {/* Type */}
+                  <Field.Root>
+                    <Field.Label>Asset Type</Field.Label>
+                    <Select.Root
+                      collection={assetTypeOptions}
+                      value={[assetType]}
+                      onValueChange={({ value }) =>
+                        setAssetType((value?.[0] as string) ?? "other")
+                      }
+                    >
+                      <Select.HiddenSelect />
+                      <Select.Control>
+                        <Select.Trigger>
+                          <Select.ValueText placeholder="Select asset type" />
+                        </Select.Trigger>
+                        <Select.IndicatorGroup>
+                          <Select.Indicator />
+                        </Select.IndicatorGroup>
+                      </Select.Control>
+                      <Portal>
+                        <Select.Positioner>
+                          <Select.Content>
+                            {assetTypeOptions.items.map((item) => (
+                              <Select.Item item={item} key={item.value}>
+                                {item.label}
+                                <Select.ItemIndicator />
+                              </Select.Item>
+                            ))}
+                          </Select.Content>
+                        </Select.Positioner>
+                      </Portal>
+                    </Select.Root>
+                  </Field.Root>
 
-          {/* Tags */}
-          <Field.Root>
-            <Field.Label>Tags</Field.Label>
-            <Input
-              value={tagsText}
-              onChange={(e) => setTagsText(e.target.value)}
-              placeholder="e.g. 3D, Aircraft"
-            />
-            <Field.HelperText>Separate multiple tags with commas</Field.HelperText>
-          </Field.Root>
+                  {/* Folder */}
+                  <Field.Root>
+                    <Field.Label>Folder (optional)</Field.Label>
+                    <Select.Root
+                      collection={folderOptions}
+                      value={[folderId ? String(folderId) : ""]}
+                      onValueChange={({ value }) =>
+                        setFolderId(value?.[0] ? Number(value[0]) : "")
+                      }
+                    >
+                      <Select.HiddenSelect />
+                      <Select.Control>
+                        <Select.Trigger>
+                          <Select.ValueText placeholder="— Root —" />
+                        </Select.Trigger>
+                        <Select.IndicatorGroup>
+                          <Select.Indicator />
+                        </Select.IndicatorGroup>
+                      </Select.Control>
+                      <Portal>
+                        <Select.Positioner>
+                          <Select.Content>
+                            {folderOptions.items.map((item) => (
+                              <Select.Item item={item} key={item.value}>
+                                {item.label}
+                                <Select.ItemIndicator />
+                              </Select.Item>
+                            ))}
+                          </Select.Content>
+                        </Select.Positioner>
+                      </Portal>
+                    </Select.Root>
+                  </Field.Root>
 
-          {/* Description */}
-          <Field.Root>
-            <Field.Label>Description</Field.Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description for this asset"
-            />
-          </Field.Root>
+                  {/* Tags */}
+                  <Field.Root>
+                    <Field.Label>Tags</Field.Label>
+                    <Input
+                      value={tagsText}
+                      onChange={(e) => setTagsText(e.target.value)}
+                      placeholder="e.g. 3D, Aircraft"
+                    />
+                    <Field.HelperText>Separate multiple tags with commas</Field.HelperText>
+                  </Field.Root>
 
-          {/* Submit */}
-          <Button type="submit" colorScheme="blue" disabled={loading}>
-            {loading ? (
-              <>
-                <Spinner size="sm" mr={2} /> Uploading...
-              </>
-            ) : (
-              "Upload Asset"
-            )}
-          </Button>
-        </Stack>
-      </form>
+                  {/* Description */}
+                  <Field.Root>
+                    <Field.Label>Description</Field.Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Optional description for this asset"
+                    />
+                  </Field.Root>
+                </VStack>
+              </Box>
+            </SimpleGrid>
+          </form>
+        </Tabs.Content>
+
+        {/* --- Custom Metadata Tab --- */}
+        <Tabs.Content value="metadata">
+          <VStack align="start" gap={3} w="full">
+            <HStack justify="space-between" w="full" mb={2}>
+              <Text fontWeight="semibold">Metadata</Text>
+              <Button size="sm" onClick={handleAddMetadata} colorScheme="green">
+                <FiPlus /> Add
+              </Button>
+            </HStack>
+
+            <VStack w="full" gap={3}>
+              {metadata.map((item, index) => (
+                <HStack key={index} w="full" justify="space-between" align="center">
+                  <HStack w="full">
+                    <Input
+                      placeholder="Key"
+                      value={item.key}
+                      onChange={(e) => {
+                        const newKey = e.target.value;
+                        setMetadata((prev) =>
+                          prev.map((meta, i) =>
+                            i === index ? { ...meta, key: newKey } : meta
+                          )
+                        );
+                      }}
+                    />
+
+                    {/* Type */}
+                    <select
+                      value={item.data_type}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setMetadata((prev) =>
+                          prev.map((meta, i) =>
+                            i === index ? { ...meta, data_type: newType, value: "" } : meta
+                          )
+                        );
+                      }}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                      }}
+                    >
+                      <option value="string">String</option>
+                      <option value="integer">Integer</option>
+                      <option value="float">Float</option>
+                      <option value="boolean">Boolean</option>
+                      <option value="date">Date</option>
+                    </select>
+
+                    {/* Dynamic value input */}
+                    {item.data_type === "boolean" ? (
+                      <select
+                        value={item.value}
+                        onChange={(e) => {
+                          const newVal = e.target.value;
+                          setMetadata((prev) =>
+                            prev.map((meta, i) =>
+                              i === index ? { ...meta, value: newVal } : meta
+                            )
+                          );
+                        }}
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "6px",
+                          border: "1px solid #ccc",
+                        }}
+                      >
+                        <option value="">Select</option>
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                      </select>
+                    ) : item.data_type === "integer" || item.data_type === "float" ? (
+                      <Input
+                        type="number"
+                        placeholder="Value"
+                        value={item.value}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (item.data_type === "integer" && val !== "" && !/^-?\d+$/.test(val))
+                            return;
+                          setMetadata((prev) =>
+                            prev.map((meta, i) =>
+                              i === index ? { ...meta, value: val } : meta
+                            )
+                          );
+                        }}
+                      />
+                    ) : item.data_type === "date" ? (
+                      <Input
+                        type="date"
+                        value={item.value}
+                        onChange={(e) => {
+                          const newVal = e.target.value;
+                          setMetadata((prev) =>
+                            prev.map((meta, i) =>
+                              i === index ? { ...meta, value: newVal } : meta
+                            )
+                          );
+                        }}
+                      />
+                    ) : (
+                      <Input
+                        placeholder="Value"
+                        value={item.value}
+                        onChange={(e) => {
+                          const newVal = e.target.value;
+                          setMetadata((prev) =>
+                            prev.map((meta, i) =>
+                              i === index ? { ...meta, value: newVal } : meta
+                            )
+                          );
+                        }}
+                      />
+                    )}
+                  </HStack>
+
+                  <IconButton
+                    aria-label="Delete metadata"
+                    size="sm"
+                    colorScheme="red"
+                    variant="ghost"
+                    onClick={() => handleDeleteMetadata(index)}
+                  >
+                    <FiX />
+                  </IconButton>
+                </HStack>
+              ))}
+            </VStack>
+          </VStack>
+        </Tabs.Content>
+      </Tabs.Root>
+
+      {/* --- Upload Button (common) --- */}
+      <Box textAlign="center" mt={8}>
+        <Button
+          colorScheme="blue"
+          onClick={handleSubmit}
+          disabled={loading}
+          size="lg"
+        >
+          {loading ? (
+            <>
+              <Spinner size="sm" mr={2} /> Uploading...
+            </>
+          ) : (
+            "Upload Asset"
+          )}
+        </Button>
+      </Box>
     </Box>
   );
 }

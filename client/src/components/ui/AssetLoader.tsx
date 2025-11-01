@@ -13,9 +13,21 @@ type ApiAsset = {
   asset_type: string
   file_path: string
   description: string
+  uploaded_by?: string
+  uploaded_at?: string
+  size_bytes?: number
   current_version_info?: {
     file_path?: string
+    uploaded_by?: string
+    uploaded_at?: string
+    size_bytes?: number
   }
+  metadata?: Array<{
+    field_name?: string
+    data_type?: string
+    value?: string
+  }>
+  tags?: string[]
 }
 
 type Asset = {
@@ -24,6 +36,16 @@ type Asset = {
   description: string
   type: string
   url: string
+  file_path?: string
+  uploaded_by?: string
+  uploaded_at?: string
+  size_bytes?: number
+  metadata: Array<{
+    key: string
+    value: string
+    data_type: string
+  }>
+  tags: string[]
 }
 
 const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(/\/$/, '')
@@ -56,13 +78,24 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
         if (!isMounted) return
 
         const parsed = (data.assets ?? []).map<Asset>((item) => {
-          const source = item.current_version_info?.file_path ?? item.file_path
+          const versionInfo = item.current_version_info
+          const source = versionInfo?.file_path ?? item.file_path ?? ''
           return {
             id: item.asset_id,
             name: item.name || 'Untitled asset',
             description: item.description || '',
             type: item.asset_type || 'unknown',
             url: buildUrl(source),
+            file_path: source || undefined,
+            uploaded_by: versionInfo?.uploaded_by ?? item.uploaded_by,
+            uploaded_at: versionInfo?.uploaded_at ?? item.uploaded_at,
+            size_bytes: versionInfo?.size_bytes ?? item.size_bytes,
+            metadata: (item.metadata ?? []).map((meta) => ({
+              key: meta.field_name ?? '',
+              value: meta.value ?? '',
+              data_type: meta.data_type ?? 'string',
+            })),
+            tags: item.tags ?? [],
           }
         })
 
@@ -88,8 +121,8 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredAssets = normalizedQuery
-    ? assets.filter(({ name, description, type }) => {
-        const haystack = `${name} ${description} ${type}`.toLowerCase()
+    ? assets.filter(({ name, description, type, tags }) => {
+        const haystack = `${name} ${description} ${type} ${(tags ?? []).join(' ')}`.toLowerCase()
         return haystack.includes(normalizedQuery)
       })
     : assets

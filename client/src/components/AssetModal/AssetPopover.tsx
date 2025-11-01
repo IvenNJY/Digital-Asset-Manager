@@ -10,6 +10,16 @@ interface AssetPopoverProps {
     description: string
     type: string
     url: string
+    file_path?: string
+    uploaded_by?: string
+    uploaded_at?: string
+    size_bytes?: number
+    metadata: Array<{
+      key: string
+      value: string
+      data_type: string
+    }>
+    tags: string[]
   }
   view: 'grid' | 'list'
 }
@@ -37,6 +47,10 @@ function AssetPopover({ asset, view }: AssetPopoverProps) {
             url={asset.url}
             name={asset.name}
             description={asset.description}
+            asset_type={asset.type}
+            uploaded_by={asset.uploaded_by}
+            uploaded_at={asset.uploaded_at}
+            tags={asset.tags}
           />
         </Box>
       </Popover.Trigger>

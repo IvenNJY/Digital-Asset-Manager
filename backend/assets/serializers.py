@@ -114,6 +114,7 @@ class VersionSerializer(serializers.ModelSerializer):
 
     #file upload support for versions
     upload_file = serializers.FileField(write_only=True, required=False)
+    snapshot = serializers.JSONField(read_only=True)  # ← MUST BE HERE
 
     class Meta:
         model = Version
@@ -127,6 +128,7 @@ class VersionSerializer(serializers.ModelSerializer):
             "uploaded_at",
             "changes_note",
             "upload_file",
+            "snapshot",  # ← MUST BE HERE
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
