@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     VStack,
     Box,
@@ -14,6 +14,7 @@ import {
     Wrap,
 } from "@chakra-ui/react";
 import { toaster } from "@/components/ui/toaster";   // <-- NEW
+import { useAuthUser } from "@/components/auth/PrivateRoute";
 
 type AssetType = {
     id?: number;
@@ -37,6 +38,11 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
     const [editedAsset, setEditedAsset] = useState(asset);
     const [size, setSize] = useState<number | undefined>(asset.size_bytes);
     const [newTag, setNewTag] = useState("");
+    const authUser = useAuthUser();
+    const canEditAsset = useMemo(() => {
+        const role = authUser?.role?.toLowerCase() ?? null;
+        return role === "admin" || role === "editor";
+    }, [authUser?.role]);
 
     const muted = { base: "gray.600", _dark: "gray.400" };
     const mutedBg = { base: "gray.200", _dark: "whiteAlpha.200" };
@@ -144,6 +150,12 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
         }
     };
 
+    useEffect(() => {
+        if (!canEditAsset && isEditing) {
+            setIsEditing(false);
+        }
+    }, [canEditAsset, isEditing]);
+
     // ──────────────────────────────────────────────────────────────
     // Tag helpers
     // ──────────────────────────────────────────────────────────────
@@ -184,33 +196,35 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
             <Box w="full" bg={mutedBg} p={4} borderRadius="md">
                 <HStack justify="space-between" w="full" mb={2}>
                     <Text fontWeight="semibold">Asset Information</Text>
-                    {!isEditing ? (
-                        <Button size="sm" onClick={() => setIsEditing(true)}>
-                            Edit
-                        </Button>
-                    ) : (
-                        <HStack>
-                            <Button size="sm" colorScheme="blue" onClick={handleSave}>
-                                Save
+                    {canEditAsset && (
+                        !isEditing ? (
+                            <Button size="sm" onClick={() => setIsEditing(true)}>
+                                Edit
                             </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                    setEditedAsset(asset);   // reset on cancel
-                                    setIsEditing(false);
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                        </HStack>
+                        ) : (
+                            <HStack>
+                                <Button size="sm" colorScheme="blue" onClick={handleSave}>
+                                    Save
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setEditedAsset(asset);   // reset on cancel
+                                        setIsEditing(false);
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </HStack>
+                        )
                     )}
                 </HStack>
 
                 <Box borderBottom="1px solid" borderColor="gray.300" my={2} w="full" />
 
                 {/* READ-ONLY VIEW */}
-                {!isEditing ? (
+                {!isEditing || !canEditAsset ? (
                     <VStack align="start" gap={2}>
                         <HStack>
                             <Text fontWeight="medium">Type:</Text>
