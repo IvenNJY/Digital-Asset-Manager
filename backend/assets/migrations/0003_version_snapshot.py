@@ -15,4 +15,6 @@ class Migration(migrations.Migration):
             name='snapshot',
             field=models.JSONField(blank=True, null=True),
         ),
+
     ]
+

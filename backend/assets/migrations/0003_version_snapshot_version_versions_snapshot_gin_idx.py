@@ -24,3 +24,4 @@ class Migration(migrations.Migration):
             index=django.contrib.postgres.indexes.GinIndex(fields=['snapshot'], name='versions_snapshot_gin_idx', opclasses=['jsonb_path_ops']),
         ),
     ]
+
