@@ -45,7 +45,9 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
     }, [authUser?.role]);
 
     const muted = { base: "gray.600", _dark: "gray.400" };
-    const mutedBg = { base: "gray.200", _dark: "whiteAlpha.200" };
+    const mutedBg = { base: "white", _dark: "whiteAlpha.200" };
+    const borderTheme = { base: "1px solid", _dark: "" };
+    const borderThemeColor = { base: "gray.300", _dark: "gray.600" };
 
     // ──────────────────────────────────────────────────────────────
     // Fetch tags
@@ -187,13 +189,13 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
         <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
             {/* Description box */}
             {asset.description && !isEditing && (
-                <Box w="full" bg={mutedBg} p={3} borderRadius="md">
+                <Box w="full" bg={mutedBg} p={3} borderRadius="md" border={borderTheme} borderColor={borderThemeColor}>
                     <Text color={muted}>{asset.description}</Text>
                 </Box>
             )}
 
             {/* Main info */}
-            <Box w="full" bg={mutedBg} p={4} borderRadius="md">
+            <Box w="full" bg={mutedBg} p={4} borderRadius="md" border={borderTheme} borderColor={borderThemeColor}>
                 <HStack justify="space-between" w="full" mb={2}>
                     <Text fontWeight="semibold">Asset Information</Text>
                     {canEditAsset && (

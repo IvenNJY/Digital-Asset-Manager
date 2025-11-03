@@ -325,15 +325,15 @@ export default function AssetMenu({ asset }: Props) {
             <HStack gap={2}>
               <Button size="sm" color={{ base: "black", _dark: "white" }} bg={{ base: 'whiteAlpha.200', _dark: 'whiteAlpha.400' }} borderColor={{ base: 'blackAlpha.500', _dark: 'whiteAlpha.600' }} _hover={{ bg: { base: 'gray.200', _dark: 'gray.500' } }} onClick={handleDownload}><FiDownload /></Button>
               {canManageAssets && (
-                <Dialog.Root role="alertdialog">
+                <Dialog.Root role="alertdialog" placement={"center"}>
                   <Dialog.Trigger asChild>
                     <Button size="sm" color={{ base: "black", _dark: "white" }} bg="red.600" borderColor={{ base: 'blackAlpha.500', _dark: 'redAlpha.900' }} _hover={{ bg: { base: 'red.500', _dark: 'red.500' } }}>
                       <FiTrash />
                     </Button>
                   </Dialog.Trigger>
                   <Portal>
-                    <Dialog.Backdrop />
-                    <Dialog.Positioner zIndex="popover">
+                    <Dialog.Backdrop zIndex={2000}/>
+                    <Dialog.Positioner zIndex={2000}>
                       <Dialog.Content>
                         <Dialog.Header>
                           <Dialog.Title>Delete Asset?</Dialog.Title>

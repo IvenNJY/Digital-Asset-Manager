@@ -35,6 +35,15 @@ export default function AssetCard({
   const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(lowerUrl)
   const isDocument = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|appl)$/i.test(url.toLowerCase());
 
+  function truncateText(text: string, maxLength: number): string {
+    if (text.length > maxLength) {
+      // Truncate the string and append an ellipsis
+      return text.substring(0, maxLength) + '...';
+    }
+    // Return the original string if it's within the limit
+    return text;
+  }
+
   // Shared media preview component
   const Media = () => {
     if (isGLB) {
@@ -116,7 +125,7 @@ export default function AssetCard({
         display="flex"
         flexDirection={{ base: "column", md: "row" }}
       >
-        <Box w={{ base: "100%", md: "240px" }} maxH="200px" flexShrink={0}>
+        <Box w={{ base: "100%", md: "240px" }} maxH="180px" flexShrink={0}>
           <Media />
         </Box>
 
@@ -133,12 +142,17 @@ export default function AssetCard({
         </Card.Body>
 
         <Card.Footer gap="2">
-          <VStack justify="space-between" w="full" align="start">
-            {badgeLabels.map((tag) => (
-              <Badge key={tag} size="sm">
-                {tag}
-              </Badge>
-            ))}
+          <VStack justify="space-between" w="full" align="end">
+            {badgeLabels.slice(0, 3).map((tag) => (
+            <Badge key={tag} size="sm">
+              {tag}
+            </Badge>
+          ))}
+          {badgeLabels.length > 3 && (
+            <Badge size="sm" colorScheme="gray">
+              +{badgeLabels.length - 3} 
+            </Badge>
+          )}
           </VStack>
         </Card.Footer>
       </Card.Root>
@@ -158,17 +172,22 @@ export default function AssetCard({
       <Media />
 
       <Card.Body gap="2" flex="1" justifyContent="space-between">
-        <Card.Title>{name}</Card.Title>
-        <Card.Description>{description}</Card.Description>
+        <Card.Title>{truncateText(name, 15)}</Card.Title>
+            <Card.Description>{truncateText(description, 20)}</Card.Description>
       </Card.Body>
 
       <Card.Footer gap="2">
         <HStack justify="flex-start" w="full" flexWrap="wrap" gap="1">
-          {badgeLabels.map((tag) => (
+          {badgeLabels.slice(0, 2).map((tag) => (
             <Badge key={tag} size="sm">
               {tag}
             </Badge>
           ))}
+          {badgeLabels.length > 2 && (
+            <Badge size="sm" colorScheme="gray">
+              +{badgeLabels.length - 2} 
+            </Badge>
+          )}
         </HStack>
       </Card.Footer>
     </Card.Root>
