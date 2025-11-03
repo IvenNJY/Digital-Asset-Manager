@@ -22,9 +22,10 @@ interface AssetPopoverProps {
     tags: string[]
   }
   view: 'grid' | 'list'
+  onPreview: (src: string) => void;
 }
 
-function AssetPopover({ asset, view }: AssetPopoverProps) {
+function AssetPopover({ asset, view, onPreview }: AssetPopoverProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -84,7 +85,7 @@ function AssetPopover({ asset, view }: AssetPopoverProps) {
         >
           <Popover.Arrow />
           <Popover.Body p={0}>
-            <AssetMenu asset={asset} />
+            <AssetMenu asset={asset} onPreview={(src) => onPreview(src)} />
           </Popover.Body>
         </Popover.Content>
       </Portal>

@@ -6,6 +6,7 @@ urlpatterns = [
     # Asset CRUD
     path("list/", views.asset_list_view, name="asset-list"),
     path("upload/", views.upload_asset_view, name="upload-asset"),
+    path("summary/", views.asset_summary_view, name="asset-summary"),
     path("<int:asset_id>/", views.update_asset_view, name="update-asset"),
     path("assets/<int:asset_id>/", views.delete_asset_view, name="delete-asset"),
 

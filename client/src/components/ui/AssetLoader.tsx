@@ -50,6 +50,7 @@ type Asset = {
 
 const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 
+
 const buildUrl = (path: string) => {
   if (!path) return ''
 
@@ -59,6 +60,7 @@ const buildUrl = (path: string) => {
 function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true
@@ -71,7 +73,7 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to load assets')
+          throw Error('Failed to load assets')
         }
 
         const data = (await response.json()) as { assets?: ApiAsset[] }
@@ -142,7 +144,7 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
       w="full"
     >
       {filteredAssets.map((asset) => (
-        <AssetPopover key={asset.id} asset={asset} view={view} />
+        <AssetPopover key={asset.id} asset={asset} view={view} onPreview={(src: string) => setPreviewSrc(src)} />
       ))}
     </SimpleGrid>
   )
