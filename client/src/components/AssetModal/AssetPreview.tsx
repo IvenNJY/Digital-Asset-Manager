@@ -184,7 +184,7 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
     // Render
     // ──────────────────────────────────────────────────────────────
     return (
-        <VStack align="start" w="full" gap={4}>
+        <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
             {/* Description box */}
             {asset.description && !isEditing && (
                 <Box w="full" bg={mutedBg} p={3} borderRadius="md">
@@ -331,7 +331,6 @@ export default function AssetPreview({ asset }: { asset: AssetType }) {
                                     width: "100%",
                                     padding: "6px 8px",
                                     borderRadius: "6px",
-                                    backgroundColor: "transparent",
                                     border: "1px solid var(--chakra-colors-gray-600)",
                                     color: "inherit",
                                 }}
