@@ -29,6 +29,7 @@ import {
 } from 'react-icons/fi';
 import LogoutButton from '../auth/LogoutButton';
 import Link from 'next/link';
+import { useEffect, useState } from "react";
 
 type SidebarProps = {
   user: CurrentUser;
@@ -88,6 +89,28 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
   const canViewInsights = userRole === 'admin' || userRole === 'editor';
   const showAdminSection = canManageUsers || canViewInsights;
   const canUpload = userRole === "admin" || userRole === "editor";
+
+  const [assetCounts, setAssetCounts] = useState({
+    all: 0,
+    images: 0,
+    videos: 0,
+    documents: 0,
+  });
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const res = await fetch("http://localhost:8000/api/assets/summary/");
+        if (!res.ok) throw new Error("Failed to load summary");
+        const data = await res.json();
+        setAssetCounts(data);
+      } catch (err) {
+        console.error("Error fetching asset summary:", err);
+      }
+    }
+
+    fetchCounts();
+  }, []);
 
   return (
     <Box
@@ -164,10 +187,10 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
             FOLDERS
           </Text>
           <Stack gap="1">
-            <SidebarItem icon={BsFolder2} label="All Assets" link='/dashboard' count={42} />
-            <SidebarItem icon={FiImage} label="Images" count={28} />
-            <SidebarItem icon={FiVideo} label="Videos" count={8} />
-            <SidebarItem icon={FiFileText} label="Documents" count={6} />
+            <SidebarItem icon={BsFolder2} label="All Assets" link='/dashboard' count={assetCounts.all} />
+            <SidebarItem icon={FiImage} label="Images" count={assetCounts.images} />
+            <SidebarItem icon={FiVideo} label="Videos" count={assetCounts.videos} />
+            <SidebarItem icon={FiFileText} label="Documents" count={assetCounts.documents} />
           </Stack>
         </Box>
 
