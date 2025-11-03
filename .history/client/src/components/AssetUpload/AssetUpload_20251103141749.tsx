@@ -57,6 +57,7 @@ export default function AssetUpload() {
   const [assetType, setAssetType] = useState("other");
   const [description, setDescription] = useState("");
   const [folderId, setFolderId] = useState<string>(""); // "new" | folder_id | ""
+  const [folderIds, setFolderIds] = useState<string[]>([]);
   const [folders, setFolders] = useState<FolderOption[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -110,14 +111,13 @@ export default function AssetUpload() {
       if (tagsText) form.append("tags", tagsText);
       if (metadata.length > 0) form.append("metadata", JSON.stringify(metadata));
 
-      // --- FOLDER LOGIC (ONLY CHANGE) ---
+      // Folder logic
       if (folderId && folderId !== "new") {
-        form.append("folder", folderId);               // ← Existing folder
+        form.append("folder", folderId);
       } else if (folderId === "new") {
-        form.append("new_folder_name", newFolderName.trim()); // ← Create new
+        form.append("new_folder_name", newFolderName);
       }
-      // else: --ROOT-- → nothing sent → backend defaults to "media"
-      // ---------------------------------
+      // else: --ROOT-- → saved to "media" on backend
 
       const res = await fetch("/api/assets/upload/", {
         method: "POST",
@@ -161,16 +161,13 @@ export default function AssetUpload() {
 
   const handleDeleteMetadata = (index: number) => {
     setMetadata((prev) => prev.filter((_, i) => i !== index));
-  };
 
-  // Folder options (with "Create New Folder...")
+  };
+  // Folder options
   const folderOptions = createListCollection({
     items: [
       { label: "--ROOT--", value: "" },
-      ...folders.map((f) => ({
-        label: f.name,
-        value: String(f.folder_id),
-      })),
+      ...folders.map(f => ({ label: f.name, value: String(f.folder_id) })),
       { label: "Create New Folder...", value: "new" },
     ],
   });
@@ -255,7 +252,7 @@ export default function AssetUpload() {
               {/* RIGHT: Type, Folder, Tags, Description */}
               <Box>
                 <VStack gap={3} align="stretch">
-                  {/* Asset Type */}
+                  {/* Asset Type - FULLY RESTORED */}
                   <Field.Root>
                     <Field.Label>Asset Type</Field.Label>
                     <Select.Root

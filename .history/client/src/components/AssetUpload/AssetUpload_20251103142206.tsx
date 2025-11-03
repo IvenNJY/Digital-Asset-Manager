@@ -57,6 +57,7 @@ export default function AssetUpload() {
   const [assetType, setAssetType] = useState("other");
   const [description, setDescription] = useState("");
   const [folderId, setFolderId] = useState<string>(""); // "new" | folder_id | ""
+  const [folderIds, setFolderIds] = useState<string[]>([]);
   const [folders, setFolders] = useState<FolderOption[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -110,14 +111,14 @@ export default function AssetUpload() {
       if (tagsText) form.append("tags", tagsText);
       if (metadata.length > 0) form.append("metadata", JSON.stringify(metadata));
 
-      // --- FOLDER LOGIC (ONLY CHANGE) ---
-      if (folderId && folderId !== "new") {
-        form.append("folder", folderId);               // ← Existing folder
-      } else if (folderId === "new") {
-        form.append("new_folder_name", newFolderName.trim()); // ← Create new
+      // Folder logic
+      if (folderIds.length) {
+        folderIds.forEach(id => form.append("folder_ids[]", id));
       }
-      // else: --ROOT-- → nothing sent → backend defaults to "media"
-      // ---------------------------------
+      if (folderId === "new" && newFolderName.trim()) {
+        form.append("new_folder_name", newFolderName.trim());
+      }
+      // else: --ROOT-- → saved to "media" on backend
 
       const res = await fetch("/api/assets/upload/", {
         method: "POST",
@@ -146,6 +147,8 @@ export default function AssetUpload() {
       setFolderId("");
       setNewFolderName("");
       setMetadata([]);
+      setFolderIds([]);
+      setFolderId("");
     } catch (err) {
       console.error("Upload error", err);
       toaster.create({ title: "Upload failed", type: "error", closable: true });
@@ -161,16 +164,13 @@ export default function AssetUpload() {
 
   const handleDeleteMetadata = (index: number) => {
     setMetadata((prev) => prev.filter((_, i) => i !== index));
-  };
 
-  // Folder options (with "Create New Folder...")
+  };
+  // Folder options
   const folderOptions = createListCollection({
     items: [
       { label: "--ROOT--", value: "" },
-      ...folders.map((f) => ({
-        label: f.name,
-        value: String(f.folder_id),
-      })),
+      ...folders.map(f => ({ label: f.name, value: String(f.folder_id) })),
       { label: "Create New Folder...", value: "new" },
     ],
   });
@@ -255,7 +255,7 @@ export default function AssetUpload() {
               {/* RIGHT: Type, Folder, Tags, Description */}
               <Box>
                 <VStack gap={3} align="stretch">
-                  {/* Asset Type */}
+                  {/* Asset Type - FULLY RESTORED */}
                   <Field.Root>
                     <Field.Label>Asset Type</Field.Label>
                     <Select.Root
@@ -294,8 +294,19 @@ export default function AssetUpload() {
                     <Field.Label>Folder</Field.Label>
                     <Select.Root
                       collection={folderOptions}
-                      value={[folderId]}
-                      onValueChange={(details) => setFolderId(details.value[0] || "")}
+                      value={folderIds}                     // <-- array
+                      multiple                              // <-- NEW
+                      onValueChange={(e) => {
+                        const vals = e.value ?? [];
+                        if (vals.includes("new")) {
+                          setFolderId("new");
+                          // keep any already-selected real folders
+                          setFolderIds(vals.filter(v => v !== "new" && v !== ""));
+                        } else {
+                          setFolderId("");
+                          setFolderIds(vals.filter(v => v !== ""));
+                        }
+                      }}
                     >
                       <Select.Control>
                         <Select.Trigger>

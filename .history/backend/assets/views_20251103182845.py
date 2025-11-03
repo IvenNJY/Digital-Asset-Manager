@@ -102,7 +102,6 @@ def upload_asset_view(request):
         # 3. LINK ASSET TO FOLDER(S)
         for folder in assigned_folders:
             AssetFolder.objects.create(asset=asset, folder=folder)
-            
         # Create initial Version
         version = Version.objects.create(
             asset=asset,

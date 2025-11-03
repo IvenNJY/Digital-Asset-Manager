@@ -9,7 +9,6 @@ from .models import (
     AssetTag,
     MetadataField,
     AssetMetadata,
-    AssetFolder,
 )
 
 User = get_user_model()
@@ -133,30 +132,20 @@ class VersionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
-# -----------------------------
-# AssetFolder Serializer (NEW)
-# -----------------------------
-class AssetFolderSerializer(serializers.ModelSerializer):
-    folder_name = serializers.CharField(source="folder.name", read_only=True)
 
-    class Meta:
-        model = AssetFolder
-        fields = ["folder", "folder_name"]
-        
 # -----------------------------
-# Asset Serializer (UPDATED)
+# Asset Serializer (UPDATED – replace the whole class)
 # -----------------------------
 class AssetSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
 
-    # NEW: list of folders from the junction table
+    # NEW: list of folders via junction table
     folders = AssetFolderSerializer(source="folder_mappings", many=True, read_only=True)
 
     current_version_info = VersionSerializer(source="current_version", read_only=True)
     metadata = AssetMetadataSerializer(many=True, read_only=True)
     tags = serializers.SerializerMethodField()
 
-    # File upload
     upload_file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
@@ -185,7 +174,6 @@ class AssetSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["uploaded_by"] = self.context["request"].user
         return super().create(validated_data)
-
 
 # -----------------------------
 # AssetTag Serializer

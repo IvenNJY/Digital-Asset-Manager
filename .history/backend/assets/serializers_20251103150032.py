@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
+    AssetFolder,
     Folder,
     Asset,
     Version,
@@ -9,12 +10,16 @@ from .models import (
     AssetTag,
     MetadataField,
     AssetMetadata,
-    AssetFolder,
 )
 
 User = get_user_model()
 
+class AssetFolderSerializer(serializers.ModelSerializer):
+    folder_name = serializers.CharField(source="folder.name", read_only=True)
 
+    class Meta:
+        model = AssetFolder
+        fields = ["folder", "folder_name"]
 # -----------------------------
 # Folder Serializer
 # -----------------------------
@@ -133,23 +138,14 @@ class VersionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
-# -----------------------------
-# AssetFolder Serializer (NEW)
-# -----------------------------
-class AssetFolderSerializer(serializers.ModelSerializer):
-    folder_name = serializers.CharField(source="folder.name", read_only=True)
 
-    class Meta:
-        model = AssetFolder
-        fields = ["folder", "folder_name"]
-        
 # -----------------------------
-# Asset Serializer (UPDATED)
+# Asset Serializer
 # -----------------------------
 class AssetSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
 
-    # NEW: list of folders from the junction table
+    # NEW: folders from the junction table
     folders = AssetFolderSerializer(source="folder_mappings", many=True, read_only=True)
 
     current_version_info = VersionSerializer(source="current_version", read_only=True)
@@ -167,7 +163,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "asset_type",
             "upload_file",
             "file_path",
-            "folders",                     # <-- NEW
+            "folders",               # <-- NEW
             "uploaded_by",
             "uploaded_at",
             "size_bytes",
@@ -177,7 +173,9 @@ class AssetSerializer(serializers.ModelSerializer):
             "metadata",
             "tags",
         ]
-        read_only_fields = ["uploaded_by", "uploaded_at", "file_path", "size_bytes"]
+        read_only_fields = [
+            "uploaded_by", "uploaded_at", "file_path", "size_bytes"
+        ]
 
     def get_tags(self, obj):
         return [t.tag.name for t in obj.asset_tags.all()]
@@ -185,7 +183,6 @@ class AssetSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["uploaded_by"] = self.context["request"].user
         return super().create(validated_data)
-
 
 # -----------------------------
 # AssetTag Serializer

@@ -133,16 +133,7 @@ class VersionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
-# -----------------------------
-# AssetFolder Serializer (NEW)
-# -----------------------------
-class AssetFolderSerializer(serializers.ModelSerializer):
-    folder_name = serializers.CharField(source="folder.name", read_only=True)
 
-    class Meta:
-        model = AssetFolder
-        fields = ["folder", "folder_name"]
-        
 # -----------------------------
 # Asset Serializer (UPDATED)
 # -----------------------------
@@ -197,3 +188,12 @@ class AssetTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssetTag
         fields = ["asset", "tag", "asset_name", "tag_name"]
+# -----------------------------
+# AssetFolder Serializer (NEW)
+# -----------------------------
+class AssetFolderSerializer(serializers.ModelSerializer):
+    folder_name = serializers.CharField(source="folder.name", read_only=True)
+
+    class Meta:
+        model = AssetFolder
+        fields = ["folder", "folder_name"]

@@ -6,8 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST,require_http_methods
 from django.contrib.auth.decorators import login_required
 
-from .models import Asset, AssetMetadata, Folder, Version, Tag, AssetTag, MetadataField,AssetFolder
-from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
+from .models import Asset, AssetMetadata, Version, Tag, AssetTag, MetadataField,Folder
+from .serializers import AssetSerializer, VersionSerializer, FolderSerializer
 
 
 # -----------------------------
@@ -15,6 +15,7 @@ from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
 # -----------------------------
 def _is_admin_or_editor(user):
     return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
+
 
 # NEW: Helper to get/create root "media" folder
 def _get_media_root(user):
@@ -45,6 +46,36 @@ def upload_asset_view(request):
     description = request.POST.get("description", "")
     tags_str = request.POST.get("tags", "")
 
+    # NEW: Folder handling
+    folder_id = request.POST.get("folder")
+    new_folder_name = request.POST.get("new_folder_name")
+    selected_folder = None
+
+    if new_folder_name:
+        if not new_folder_name.strip():
+            return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
+        
+        root = _get_media_root(request.user)
+        
+        if Folder.objects.filter(name=new_folder_name, parent_folder=root).exists():
+            return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
+        
+        new_folder = Folder.objects.create(
+            name=new_folder_name.strip(),
+            parent_folder=root,
+            created_by=request.user,
+            description="Created during asset upload"
+        )
+        selected_folder = new_folder
+    elif folder_id:
+        try:
+            selected_folder = Folder.objects.get(folder_id=folder_id)
+        except Folder.DoesNotExist:
+            return JsonResponse({"detail": "Selected folder not found."}, status=404)
+    else:
+        # --ROOT--: Save to "media"
+        selected_folder = _get_media_root(request.user)
+
     # Parse metadata JSON if present
     metadata_items = []
     metadata_json = request.POST.get("metadata")
@@ -61,6 +92,7 @@ def upload_asset_view(request):
         asset = Asset.objects.create(
             name=name,
             asset_type=asset_type,
+            folder=selected_folder,  # ← NEW: Assign folder
             upload_file=upload_file,
             uploaded_by=request.user,
             description=description,
@@ -70,39 +102,7 @@ def upload_asset_view(request):
         asset.file_path = upload_file.name
         asset.size_bytes = upload_file.size
         asset.save()
-        # 2. FOLDER LOGIC (NOW SAFE)
-        root_media = _get_media_root(request.user)
-        assigned_folders = []
 
-        folder_id = request.POST.get("folder")
-        new_folder_name = request.POST.get("new_folder_name")
-
-        if new_folder_name:
-            if not new_folder_name.strip():
-                return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
-            if Folder.objects.filter(name=new_folder_name, parent_folder=root_media).exists():
-                return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
-            new_folder = Folder.objects.create(
-                name=new_folder_name.strip(),
-                parent_folder=root_media,
-                created_by=request.user,
-                description="Created during asset upload"
-            )
-            assigned_folders.append(new_folder)
-
-        elif folder_id:
-            try:
-                selected_folder = Folder.objects.get(folder_id=folder_id)
-                assigned_folders.append(selected_folder)
-            except Folder.DoesNotExist:
-                return JsonResponse({"detail": "Selected folder not found."}, status=404)
-        else:
-            assigned_folders.append(root_media)
-
-        # 3. LINK ASSET TO FOLDER(S)
-        for folder in assigned_folders:
-            AssetFolder.objects.create(asset=asset, folder=folder)
-            
         # Create initial Version
         version = Version.objects.create(
             asset=asset,

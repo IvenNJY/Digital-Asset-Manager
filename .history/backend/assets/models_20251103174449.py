@@ -29,7 +29,6 @@ class Folder(models.Model):
     def __str__(self):
         return self.name
 
-
 # Handles where uploaded asset files are stored
 def asset_upload_path(instance, filename):
     """Return upload path for asset files."""
@@ -59,7 +58,7 @@ class Asset(models.Model):
     name = models.CharField(max_length=255)  # searchable name
     asset_type = models.CharField(max_length=20, choices=ASSET_TYPES)
 
-    # The actual uploaded file stored locally under MEDIA_ROOT/uploads/assets/
+    # \The actual uploaded file stored locally under MEDIA_ROOT/uploads/assets/
     upload_file = models.FileField(upload_to=asset_upload_path, null=True, blank=True)
 
     file_path = models.CharField(max_length=500)
@@ -176,6 +175,35 @@ class Version(models.Model):
 
     def __str__(self):
         return f'{self.asset.name} v{self.version_number}'
+    # NEW: Full snapshot
+    snapshot = models.JSONField(null=True, blank=True)
+    # e.g. {
+    #   "asset": {"name": "...", "description": "...", "asset_type": "image"},
+    #   "metadata": [{"key": "author", "value": "John", "data_type": "string"}, ...],
+    #   "tags": ["nature", "forest"]
+    # }
+
+    def save_snapshot(self, asset):
+        """Call this before saving a new version"""
+        metadata = [
+            {
+                "key": m.field.name,
+                "value": m.value,
+                "data_type": m.field.data_type,
+            }
+            for m in asset.metadata.all()
+        ]
+        tags = [at.tag.name for at in asset.asset_tags.all()]
+
+        self.snapshot = {
+            "asset": {
+                "name": asset.name,
+                "description": asset.description or "",
+                "asset_type": asset.asset_type,
+            },
+            "metadata": metadata,
+            "tags": tags,
+        }
 
 
 class Tag(models.Model):

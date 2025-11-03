@@ -176,6 +176,35 @@ class Version(models.Model):
 
     def __str__(self):
         return f'{self.asset.name} v{self.version_number}'
+    # NEW: Full snapshot
+    snapshot = models.JSONField(null=True, blank=True)
+    # e.g. {
+    #   "asset": {"name": "...", "description": "...", "asset_type": "image"},
+    #   "metadata": [{"key": "author", "value": "John", "data_type": "string"}, ...],
+    #   "tags": ["nature", "forest"]
+    # }
+
+    def save_snapshot(self, asset):
+        """Call this before saving a new version"""
+        metadata = [
+            {
+                "key": m.field.name,
+                "value": m.value,
+                "data_type": m.field.data_type,
+            }
+            for m in asset.metadata.all()
+        ]
+        tags = [at.tag.name for at in asset.asset_tags.all()]
+
+        self.snapshot = {
+            "asset": {
+                "name": asset.name,
+                "description": asset.description or "",
+                "asset_type": asset.asset_type,
+            },
+            "metadata": metadata,
+            "tags": tags,
+        }
 
 
 class Tag(models.Model):

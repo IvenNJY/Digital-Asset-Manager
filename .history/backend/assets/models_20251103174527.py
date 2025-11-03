@@ -29,7 +29,6 @@ class Folder(models.Model):
     def __str__(self):
         return self.name
 
-
 # Handles where uploaded asset files are stored
 def asset_upload_path(instance, filename):
     """Return upload path for asset files."""
@@ -37,10 +36,6 @@ def asset_upload_path(instance, filename):
 
 
 class Asset(models.Model):
-    """
-    Table: Assets
-    - current_version is an optional FK to Versions (nullable, SET_NULL)
-    """
     ASSET_TYPE_IMAGE = 'image'
     ASSET_TYPE_VIDEO = 'video'
     ASSET_TYPE_DOCUMENT = 'document'
@@ -56,20 +51,10 @@ class Asset(models.Model):
     ]
 
     asset_id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255)  # searchable name
+    name = models.CharField(max_length=255)
     asset_type = models.CharField(max_length=20, choices=ASSET_TYPES)
-
-    # The actual uploaded file stored locally under MEDIA_ROOT/uploads/assets/
     upload_file = models.FileField(upload_to=asset_upload_path, null=True, blank=True)
-
     file_path = models.CharField(max_length=500)
-    folder = models.ForeignKey(
-        Folder,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='assets'
-    )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -78,7 +63,6 @@ class Asset(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     size_bytes = models.BigIntegerField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    # reference to latest version; string name because Version is defined below
     current_version = models.ForeignKey(
         'Version',
         on_delete=models.SET_NULL,
@@ -96,15 +80,40 @@ class Asset(models.Model):
             models.Index(fields=['uploaded_at']),
         ]
 
-    # Auto-fill file_path and size when saving uploaded files
     def save(self, *args, **kwargs):
         if self.upload_file:
-            self.file_path = self.upload_file.name  # store relative file path
-            self.size_bytes = self.upload_file.size  # store file size in bytes
+            self.file_path = self.upload_file.name
+            self.size_bytes = self.upload_file.size
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
+
+def version_upload_path(instance, filename):
+    return os.path.join('uploads', 'versions', filename)
+
+class AssetFolder(models.Model):
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='folder_mappings'
+    )
+    folder = models.ForeignKey(
+        Folder,
+        on_delete=models.CASCADE,
+        related_name='asset_mappings'
+    )
+
+    class Meta:
+        db_table = 'asset_folders'
+        unique_together = ('asset', 'folder')
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['folder']),
+        ]
+
+    def __str__(self):
+        return f"{self.asset.name} → {self.folder.name}"
 
 
 # Handles where uploaded version files are stored
@@ -176,6 +185,35 @@ class Version(models.Model):
 
     def __str__(self):
         return f'{self.asset.name} v{self.version_number}'
+    # NEW: Full snapshot
+    snapshot = models.JSONField(null=True, blank=True)
+    # e.g. {
+    #   "asset": {"name": "...", "description": "...", "asset_type": "image"},
+    #   "metadata": [{"key": "author", "value": "John", "data_type": "string"}, ...],
+    #   "tags": ["nature", "forest"]
+    # }
+
+    def save_snapshot(self, asset):
+        """Call this before saving a new version"""
+        metadata = [
+            {
+                "key": m.field.name,
+                "value": m.value,
+                "data_type": m.field.data_type,
+            }
+            for m in asset.metadata.all()
+        ]
+        tags = [at.tag.name for at in asset.asset_tags.all()]
+
+        self.snapshot = {
+            "asset": {
+                "name": asset.name,
+                "description": asset.description or "",
+                "asset_type": asset.asset_type,
+            },
+            "metadata": metadata,
+            "tags": tags,
+        }
 
 
 class Tag(models.Model):

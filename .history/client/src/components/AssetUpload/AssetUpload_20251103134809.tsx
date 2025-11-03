@@ -110,14 +110,13 @@ export default function AssetUpload() {
       if (tagsText) form.append("tags", tagsText);
       if (metadata.length > 0) form.append("metadata", JSON.stringify(metadata));
 
-      // --- FOLDER LOGIC (ONLY CHANGE) ---
+      // Folder logic
       if (folderId && folderId !== "new") {
-        form.append("folder", folderId);               // ← Existing folder
+        form.append("folder", folderId);
       } else if (folderId === "new") {
-        form.append("new_folder_name", newFolderName.trim()); // ← Create new
+        form.append("new_folder_name", newFolderName);
       }
-      // else: --ROOT-- → nothing sent → backend defaults to "media"
-      // ---------------------------------
+      // else: --ROOT-- → saved to "media" on backend
 
       const res = await fetch("/api/assets/upload/", {
         method: "POST",
@@ -255,7 +254,7 @@ export default function AssetUpload() {
               {/* RIGHT: Type, Folder, Tags, Description */}
               <Box>
                 <VStack gap={3} align="stretch">
-                  {/* Asset Type */}
+                  {/* Asset Type - FULLY RESTORED */}
                   <Field.Root>
                     <Field.Label>Asset Type</Field.Label>
                     <Select.Root

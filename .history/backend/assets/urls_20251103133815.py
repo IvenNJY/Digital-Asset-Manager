@@ -22,6 +22,6 @@ urlpatterns = [
     path("<int:asset_id>/tags/add/", views.add_tag_view, name="add-tag"),
     path("<int:asset_id>/tags/remove/", views.remove_tag_view, name="remove-tag"),
 
-    #Folders
+    #Folder
     path("folders/", views.folder_list_view, name="folder-list"),
 ]

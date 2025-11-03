@@ -45,6 +45,51 @@ def upload_asset_view(request):
     description = request.POST.get("description", "")
     tags_str = request.POST.get("tags", "")
 
+            # --- FOLDER HANDLING (FIXED) ---
+        folder_id = request.POST.get("folder")
+        new_folder_name = request.POST.get("new_folder_name")
+        root_media = _get_media_root(request.user)
+        assigned_folders = []
+
+        if new_folder_name:
+            if not new_folder_name.strip():
+                return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
+            if Folder.objects.filter(name=new_folder_name, parent_folder=root_media).exists():
+                return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
+            new_folder = Folder.objects.create(
+                name=new_folder_name.strip(),
+                parent_folder=root_media,
+                created_by=request.user,
+                description="Created during asset upload"
+            )
+            assigned_folders.append(new_folder)
+
+        elif folder_id:
+            try:
+                selected_folder = Folder.objects.get(folder_id=folder_id)
+                assigned_folders.append(selected_folder)
+            except Folder.DoesNotExist:
+                return JsonResponse({"detail": "Selected folder not found."}, status=404)
+        else:
+            # default to root "media"
+            assigned_folders.append(root_media)
+
+        # Create Asset (NO folder FK)
+        asset = Asset.objects.create(
+            name=name,
+            asset_type=asset_type,
+            upload_file=upload_file,
+            uploaded_by=request.user,
+            description=description,
+        )
+        asset.file_path = upload_file.name
+        asset.size_bytes = upload_file.size
+        asset.save()
+
+        # Create junction rows (AssetFolder)
+        for folder in assigned_folders:
+            AssetFolder.objects.create(asset=asset, folder=folder)
+        # --- END FOLDER HANDLING ---
     # Parse metadata JSON if present
     metadata_items = []
     metadata_json = request.POST.get("metadata")
@@ -70,39 +115,7 @@ def upload_asset_view(request):
         asset.file_path = upload_file.name
         asset.size_bytes = upload_file.size
         asset.save()
-        # 2. FOLDER LOGIC (NOW SAFE)
-        root_media = _get_media_root(request.user)
-        assigned_folders = []
 
-        folder_id = request.POST.get("folder")
-        new_folder_name = request.POST.get("new_folder_name")
-
-        if new_folder_name:
-            if not new_folder_name.strip():
-                return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
-            if Folder.objects.filter(name=new_folder_name, parent_folder=root_media).exists():
-                return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
-            new_folder = Folder.objects.create(
-                name=new_folder_name.strip(),
-                parent_folder=root_media,
-                created_by=request.user,
-                description="Created during asset upload"
-            )
-            assigned_folders.append(new_folder)
-
-        elif folder_id:
-            try:
-                selected_folder = Folder.objects.get(folder_id=folder_id)
-                assigned_folders.append(selected_folder)
-            except Folder.DoesNotExist:
-                return JsonResponse({"detail": "Selected folder not found."}, status=404)
-        else:
-            assigned_folders.append(root_media)
-
-        # 3. LINK ASSET TO FOLDER(S)
-        for folder in assigned_folders:
-            AssetFolder.objects.create(asset=asset, folder=folder)
-            
         # Create initial Version
         version = Version.objects.create(
             asset=asset,

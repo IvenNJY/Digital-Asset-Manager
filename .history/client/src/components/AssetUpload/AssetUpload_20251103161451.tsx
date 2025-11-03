@@ -19,6 +19,7 @@ import {
   VStack,
   Tabs,
   HStack,
+  Table,
   IconButton,
 } from "@chakra-ui/react";
 import { FiUploadCloud, FiPlus, FiX } from "react-icons/fi";
@@ -56,14 +57,17 @@ export default function AssetUpload() {
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState("other");
   const [description, setDescription] = useState("");
-  const [folderId, setFolderId] = useState<string>(""); // "new" | folder_id | ""
+  const [folderId, setFolderId] = useState<string>("");  // ← CHANGE: string for "new"
   const [folders, setFolders] = useState<FolderOption[]>([]);
-  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderName, setNewFolderName] = useState("");  // ← NEW: For create folder
   const [tagsText, setTagsText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [metadata, setMetadata] = useState<MetadataItem[]>([]);
 
-  // Fetch folders (and refetch after upload)
+  // ✅ Custom metadata
+  const [metadata, setMetadata] = useState<MetadataItem[]>([]);
+  const [isEditingMeta, setIsEditingMeta] = useState(true);
+
+  // 🗂️ Fetch folders for dropdown (refetchable)
   const fetchFolders = async () => {
     try {
       const res = await fetch("/api/assets/folders/", { credentials: "include" });
@@ -86,17 +90,25 @@ export default function AssetUpload() {
     fetchFolders();
   }, []);
 
-  // Handle upload
+  // 📤 Handle upload
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     if (!file) {
-      toaster.create({ title: "Please select a file", type: "info", closable: true });
+      toaster.create({
+        title: "Please select a file",
+        type: "info",
+        closable: true,
+      });
       return;
     }
 
     if (folderId === "new" && !newFolderName.trim()) {
-      toaster.create({ title: "Please enter a new folder name", type: "info", closable: true });
+      toaster.create({
+        title: "Please enter a new folder name",
+        type: "info",
+        closable: true,
+      });
       return;
     }
 
@@ -108,16 +120,16 @@ export default function AssetUpload() {
       form.append("upload_file", file);
       if (description) form.append("description", description);
       if (tagsText) form.append("tags", tagsText);
-      if (metadata.length > 0) form.append("metadata", JSON.stringify(metadata));
+      if (metadata.length > 0)
+        form.append("metadata", JSON.stringify(metadata));
 
-      // --- FOLDER LOGIC (ONLY CHANGE) ---
+      // NEW: Folder logic
       if (folderId && folderId !== "new") {
-        form.append("folder", folderId);               // ← Existing folder
+        form.append("folder", folderId);
       } else if (folderId === "new") {
-        form.append("new_folder_name", newFolderName.trim()); // ← Create new
+        form.append("new_folder_name", newFolderName);
       }
-      // else: --ROOT-- → nothing sent → backend defaults to "media"
-      // ---------------------------------
+      // else: --ROOT-- , no "folder" → backend saves to "media"
 
       const res = await fetch("/api/assets/upload/", {
         method: "POST",
@@ -135,10 +147,16 @@ export default function AssetUpload() {
         return;
       }
 
-      toaster.create({ title: "Upload successful", type: "success", closable: true });
+      toaster.create({
+        title: "Upload successful",
+        type: "success",
+        closable: true,
+      });
 
-      // Refetch folders + reset form
+      // NEW: Refetch folders to include new one
       await fetchFolders();
+
+      // Reset form
       setFile(null);
       setName("");
       setDescription("");
@@ -148,13 +166,17 @@ export default function AssetUpload() {
       setMetadata([]);
     } catch (err) {
       console.error("Upload error", err);
-      toaster.create({ title: "Upload failed", type: "error", closable: true });
+      toaster.create({
+        title: "Upload failed",
+        type: "error",
+        closable: true,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Metadata handlers
+  // 🧠 Metadata handlers (unchanged)
   const handleAddMetadata = () => {
     setMetadata((prev) => [...prev, { key: "", value: "", data_type: "string" }]);
   };
@@ -163,7 +185,7 @@ export default function AssetUpload() {
     setMetadata((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Folder options (with "Create New Folder...")
+  // NEW: Include "Create New..." option
   const folderOptions = createListCollection({
     items: [
       { label: "--ROOT--", value: "" },
@@ -196,7 +218,6 @@ export default function AssetUpload() {
         <Tabs.Content value="upload">
           <form onSubmit={handleSubmit}>
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={8} alignItems="start" w="full">
-              {/* LEFT: File + Name */}
               <Box>
                 <VStack gap={3}>
                   {/* Upload Field */}
@@ -205,7 +226,7 @@ export default function AssetUpload() {
                     <FileUpload.Root
                       maxFiles={1}
                       onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
-                      accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]}
+                      accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf",".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx","appl"]}
                     >
                       <FileUpload.HiddenInput />
                       <FileUpload.Dropzone
@@ -252,43 +273,8 @@ export default function AssetUpload() {
                 </VStack>
               </Box>
 
-              {/* RIGHT: Type, Folder, Tags, Description */}
               <Box>
                 <VStack gap={3} align="stretch">
-                  {/* Asset Type */}
-                  <Field.Root>
-                    <Field.Label>Asset Type</Field.Label>
-                    <Select.Root
-                      collection={assetTypeOptions}
-                      value={[assetType]}
-                      onValueChange={({ value }) =>
-                        setAssetType((value?.[0] as string) ?? "other")
-                      }
-                    >
-                      <Select.HiddenSelect />
-                      <Select.Control>
-                        <Select.Trigger>
-                          <Select.ValueText placeholder="Select asset type" />
-                        </Select.Trigger>
-                        <Select.IndicatorGroup>
-                          <Select.Indicator />
-                        </Select.IndicatorGroup>
-                      </Select.Control>
-                      <Portal>
-                        <Select.Positioner>
-                          <Select.Content>
-                            {assetTypeOptions.items.map((item) => (
-                              <Select.Item item={item} key={item.value}>
-                                {item.label}
-                                <Select.ItemIndicator />
-                              </Select.Item>
-                            ))}
-                          </Select.Content>
-                        </Select.Positioner>
-                      </Portal>
-                    </Select.Root>
-                  </Field.Root>
-
                   {/* Folder */}
                   <Field.Root>
                     <Field.Label>Folder</Field.Label>
@@ -320,7 +306,7 @@ export default function AssetUpload() {
                     </Select.Root>
                   </Field.Root>
 
-                  {/* New Folder Input */}
+                  {/* NEW: Create Folder Input */}
                   {folderId === "new" && (
                     <Field.Root mt={2}>
                       <Field.Label>New Folder Name</Field.Label>
@@ -358,7 +344,7 @@ export default function AssetUpload() {
           </form>
         </Tabs.Content>
 
-        {/* --- Custom Metadata Tab --- */}
+        {/* --- Custom Metadata Tab --- (unchanged) */}
         <Tabs.Content value="metadata">
           <VStack align="start" gap={3} w="full">
             <HStack justify="space-between" w="full" mb={2}>
@@ -385,6 +371,7 @@ export default function AssetUpload() {
                       }}
                     />
 
+                    {/* Type */}
                     <select
                       value={item.data_type}
                       onChange={(e) => {
@@ -408,6 +395,7 @@ export default function AssetUpload() {
                       <option value="date">Date</option>
                     </select>
 
+                    {/* Dynamic value input */}
                     {item.data_type === "boolean" ? (
                       <select
                         value={item.value}
@@ -490,7 +478,7 @@ export default function AssetUpload() {
         </Tabs.Content>
       </Tabs.Root>
 
-      {/* Upload Button */}
+      {/* --- Upload Button (common) --- */}
       <Box textAlign="center" mt={8}>
         <Button
           colorScheme="blue"

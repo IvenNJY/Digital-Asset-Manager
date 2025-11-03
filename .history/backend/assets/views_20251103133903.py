@@ -6,8 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST,require_http_methods
 from django.contrib.auth.decorators import login_required
 
-from .models import Asset, AssetMetadata, Folder, Version, Tag, AssetTag, MetadataField,AssetFolder
-from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
+from .models import Asset, AssetMetadata, Version, Tag, AssetTag, MetadataField,Folder
+from .serializers import AssetSerializer, VersionSerializer, FolderSerializer
 
 
 # -----------------------------
@@ -15,6 +15,7 @@ from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
 # -----------------------------
 def _is_admin_or_editor(user):
     return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
+
 
 # NEW: Helper to get/create root "media" folder
 def _get_media_root(user):
@@ -42,6 +43,7 @@ def upload_asset_view(request):
     # Get optional fields
     name = request.POST.get("name") or upload_file.name.split("/")[-1]
     asset_type = request.POST.get("asset_type", "other")
+    folder = request.POST.get("folder")
     description = request.POST.get("description", "")
     tags_str = request.POST.get("tags", "")
 
@@ -61,6 +63,7 @@ def upload_asset_view(request):
         asset = Asset.objects.create(
             name=name,
             asset_type=asset_type,
+            folder_id=folder if folder else None,
             upload_file=upload_file,
             uploaded_by=request.user,
             description=description,
@@ -70,39 +73,7 @@ def upload_asset_view(request):
         asset.file_path = upload_file.name
         asset.size_bytes = upload_file.size
         asset.save()
-        # 2. FOLDER LOGIC (NOW SAFE)
-        root_media = _get_media_root(request.user)
-        assigned_folders = []
 
-        folder_id = request.POST.get("folder")
-        new_folder_name = request.POST.get("new_folder_name")
-
-        if new_folder_name:
-            if not new_folder_name.strip():
-                return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
-            if Folder.objects.filter(name=new_folder_name, parent_folder=root_media).exists():
-                return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
-            new_folder = Folder.objects.create(
-                name=new_folder_name.strip(),
-                parent_folder=root_media,
-                created_by=request.user,
-                description="Created during asset upload"
-            )
-            assigned_folders.append(new_folder)
-
-        elif folder_id:
-            try:
-                selected_folder = Folder.objects.get(folder_id=folder_id)
-                assigned_folders.append(selected_folder)
-            except Folder.DoesNotExist:
-                return JsonResponse({"detail": "Selected folder not found."}, status=404)
-        else:
-            assigned_folders.append(root_media)
-
-        # 3. LINK ASSET TO FOLDER(S)
-        for folder in assigned_folders:
-            AssetFolder.objects.create(asset=asset, folder=folder)
-            
         # Create initial Version
         version = Version.objects.create(
             asset=asset,
@@ -117,7 +88,7 @@ def upload_asset_view(request):
         asset.current_version = version
         asset.save(update_fields=["current_version"])
 
-        # Handle tags
+        # Handle tags – FIXED BUG
         if tags_str.strip():
             tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
             for tag_name in tag_names:
@@ -150,20 +121,6 @@ def upload_asset_view(request):
     serializer = AssetSerializer(asset, context={"request": request})
     return JsonResponse(serializer.data, status=201)
 
-# -----------------------------
-# List all Folders (NEW)
-# -----------------------------
-@csrf_exempt
-@require_GET
-def folder_list_view(request):
-    """GET /api/assets/folders/ — Returns all folders."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"detail": "Not authenticated."}, status=401)
-
-    # For simplicity, list all folders (flat); can add hierarchy later
-    folders = Folder.objects.all().select_related("parent_folder", "created_by")
-    serializer = FolderSerializer(folders, many=True, context={"request": request})
-    return JsonResponse({"folders": serializer.data}, status=200)
 
 # -----------------------------
 # List all Assets
