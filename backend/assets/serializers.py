@@ -9,6 +9,7 @@ from .models import (
     AssetTag,
     MetadataField,
     AssetMetadata,
+    AssetFolder,
 )
 
 User = get_user_model()
@@ -132,20 +133,30 @@ class VersionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path"] 
 
-
 # -----------------------------
-# Asset Serializer
+# AssetFolder Serializer (NEW)
+# -----------------------------
+class AssetFolderSerializer(serializers.ModelSerializer):
+    folder_name = serializers.CharField(source="folder.name", read_only=True)
+
+    class Meta:
+        model = AssetFolder
+        fields = ["folder", "folder_name"]
+        
+# -----------------------------
+# Asset Serializer (UPDATED)
 # -----------------------------
 class AssetSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
-    folder_name = serializers.CharField(source="folder.name", read_only=True)
-    current_version_info = VersionSerializer(
-        source="current_version", read_only=True
-    )
+
+    # NEW: list of folders from the junction table
+    folders = AssetFolderSerializer(source="folder_mappings", many=True, read_only=True)
+
+    current_version_info = VersionSerializer(source="current_version", read_only=True)
     metadata = AssetMetadataSerializer(many=True, read_only=True)
     tags = serializers.SerializerMethodField()
 
-    # Allow uploading files from frontend
+    # File upload
     upload_file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
@@ -156,8 +167,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "asset_type",
             "upload_file",
             "file_path",
-            "folder",
-            "folder_name",
+            "folders",                     # <-- NEW
             "uploaded_by",
             "uploaded_at",
             "size_bytes",
@@ -166,17 +176,13 @@ class AssetSerializer(serializers.ModelSerializer):
             "current_version_info",
             "metadata",
             "tags",
-
-            
         ]
         read_only_fields = ["uploaded_by", "uploaded_at", "file_path", "size_bytes"]
 
     def get_tags(self, obj):
-        """Return tag names for each asset."""
         return [t.tag.name for t in obj.asset_tags.all()]
-    
+
     def create(self, validated_data):
-        """Assign uploaded_by automatically."""
         validated_data["uploaded_by"] = self.context["request"].user
         return super().create(validated_data)
 
