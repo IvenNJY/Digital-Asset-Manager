@@ -1,32 +1,137 @@
-import React, { useMemo } from 'react'
-import AssetCard from './AssetCard'
+import React, { useEffect, useState } from 'react'
 import { SimpleGrid, Text } from '@chakra-ui/react'
+import AssetPopover from '../AssetModal/AssetPopover'
 
 interface AssetLoaderProps {
   view: 'grid' | 'list'
   searchQuery?: string
 }
 
+type ApiAsset = {
+  asset_id: number
+  name: string
+  asset_type: string
+  file_path: string
+  description: string
+  uploaded_by?: string
+  uploaded_at?: string
+  size_bytes?: number
+  current_version_info?: {
+    file_path?: string
+    uploaded_by?: string
+    uploaded_at?: string
+    size_bytes?: number
+  }
+  metadata?: Array<{
+    field_name?: string
+    data_type?: string
+    value?: string
+  }>
+  tags?: string[]
+}
+
+type Asset = {
+  id: number
+  name: string
+  description: string
+  type: string
+  url: string
+  file_path?: string
+  uploaded_by?: string
+  uploaded_at?: string
+  size_bytes?: number
+  metadata: Array<{
+    key: string
+    value: string
+    data_type: string
+  }>
+  tags: string[]
+}
+
+const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+
+
+const buildUrl = (path: string) => {
+  if (!path) return ''
+
+  return `${backendBase}/media/${path}`
+}
+
 function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
-  const assets = useMemo(
-    () => [
-      { id: 1, name: 'Asset 1', description: 'Description for Asset 1', type: 'image', url: 'https://picsum.photos/seed/picsum/200/300' },
-      { id: 2, name: 'Asset 2', description: 'Description for Asset 2', type: 'video', url: 'https://picsum.photos/seed/picsum/200/300' },
-      { id: 3, name: 'Asset 3', description: 'Description for Asset 3', type: 'document', url: 'https://picsum.photos/seed/picsum/200/300' },
-      { id: 4, name: 'Asset 4', description: 'Description for Asset 4', type: 'image', url: 'https://picsum.photos/seed/picsum/200/300' },
-      { id: 5, name: 'Asset 5', description: 'Description for Asset 5', type: 'video', url: 'https://picsum.photos/seed/picsum/200/300' },
-      { id: 6, name: 'Asset 6', description: 'Description for Asset 6', type: 'document', url: 'https://picsum.photos/seed/picsum/200/300' },
-    ],
-    []
-  )
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadAssets = async () => {
+      try {
+        const response = await fetch('/api/assets/list', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        })
+
+        if (!response.ok) {
+          throw Error('Failed to load assets')
+        }
+
+        const data = (await response.json()) as { assets?: ApiAsset[] }
+        if (!isMounted) return
+
+        const parsed = (data.assets ?? []).map<Asset>((item) => {
+          const versionInfo = item.current_version_info
+          const source = versionInfo?.file_path ?? item.file_path ?? ''
+          return {
+            id: item.asset_id,
+            name: item.name || 'Untitled asset',
+            description: item.description || '',
+            type: item.asset_type || 'unknown',
+            url: buildUrl(source),
+            file_path: source || undefined,
+            uploaded_by: versionInfo?.uploaded_by ?? item.uploaded_by,
+            uploaded_at: versionInfo?.uploaded_at ?? item.uploaded_at,
+            size_bytes: versionInfo?.size_bytes ?? item.size_bytes,
+            metadata: (item.metadata ?? []).map((meta) => ({
+              key: meta.field_name ?? '',
+              value: meta.value ?? '',
+              data_type: meta.data_type ?? 'string',
+            })),
+            tags: item.tags ?? [],
+          }
+        })
+
+        setAssets(parsed)
+      } catch (error) {
+        console.error('Asset load failed:', error)
+        if (isMounted) {
+          setAssets([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadAssets()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredAssets = normalizedQuery
-    ? assets.filter(({ name, description, type }) => {
-        const haystack = `${name} ${description} ${type}`.toLowerCase()
+    ? assets.filter(({ name, description, type, tags }) => {
+        const haystack = `${name} ${description} ${type} ${(tags ?? []).join(' ')}`.toLowerCase()
         return haystack.includes(normalizedQuery)
       })
     : assets
+
+  if (loading) {
+    return <Text fontSize="sm">Loading assets…</Text>
+  }
 
   if (filteredAssets.length === 0) {
     return <Text fontSize="sm">No assets match your search.</Text>
@@ -39,13 +144,7 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
       w="full"
     >
       {filteredAssets.map((asset) => (
-        <AssetCard
-          key={asset.id}
-          view={view}
-          url={asset.url}
-          name={asset.name}
-          description={asset.description}
-        />
+        <AssetPopover key={asset.id} asset={asset} view={view} onPreview={(src: string) => setPreviewSrc(src)} />
       ))}
     </SimpleGrid>
   )
