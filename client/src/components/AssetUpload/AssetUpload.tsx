@@ -201,7 +201,7 @@ export default function AssetUpload() {
                     <FileUpload.Root
                       maxFiles={1}
                       onFileChange={(details) => setFile(details.acceptedFiles?.[0] ?? null)}
-                      accept={[".glb", ".gltf", "image/*", "video/*", "application/pdf"]}
+                      accept={[".glb", ".gltf", "image/", "video/", "application/pdf",".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx","appl"]}
                     >
                       <FileUpload.HiddenInput />
                       <FileUpload.Dropzone
