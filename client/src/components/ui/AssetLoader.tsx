@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { SimpleGrid, Text } from '@chakra-ui/react'
+import { SimpleGrid, Text, Box } from '@chakra-ui/react'
 import AssetPopover from '../AssetModal/AssetPopover'
+import ViewType from '../AssetFiltering/ViewType'
+import { ViewMode } from '../AssetFiltering/ViewType'
 
 interface AssetLoaderProps {
-  view: 'grid' | 'list'
-  searchQuery?: string
+  view: 'grid' | 'list';
+  searchQuery?: string;
+  selectedCategory?: 'all' | 'images' | 'videos' | 'documents' | 'glb' | 'others'; // 👈 add this
 }
 
 type ApiAsset = {
@@ -50,18 +53,17 @@ type Asset = {
 
 const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 
-
 const buildUrl = (path: string) => {
   if (!path) return ''
-
   return `${backendBase}/media/${path}`
 }
 
-function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
+function AssetLoader({ view, searchQuery = '', selectedCategory = 'all' }: AssetLoaderProps) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
+  const [currentView, setCurrentView] = useState<'grid' | 'list'>(view)
+  
   useEffect(() => {
     let isMounted = true
 
@@ -115,38 +117,60 @@ function AssetLoader({ view, searchQuery = '' }: AssetLoaderProps) {
     }
 
     loadAssets()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
-  const filteredAssets = normalizedQuery
-    ? assets.filter(({ name, description, type, tags }) => {
-        const haystack = `${name} ${description} ${type} ${(tags ?? []).join(' ')}`.toLowerCase()
-        return haystack.includes(normalizedQuery)
-      })
-    : assets
 
-  if (loading) {
-    return <Text fontSize="sm">Loading assets…</Text>
-  }
+  const filteredAssets = assets.filter(asset => {
+    // Filter by search query
+    const matchesQuery = normalizedQuery
+      ? `${asset.name} ${asset.description} ${asset.type} ${asset.tags.join(' ')}`.toLowerCase().includes(normalizedQuery)
+      : true
 
-  if (filteredAssets.length === 0) {
-    return <Text fontSize="sm">No assets match your search.</Text>
-  }
+    // Filter by selected category from sidebar
+    const matchesCategory =
+      selectedCategory === 'all' ||
+      (selectedCategory === 'images' && asset.type === 'image') ||
+      (selectedCategory === 'videos' && asset.type === 'video') ||
+      (selectedCategory === 'documents' && asset.type === 'document') ||
+      (selectedCategory === 'glb' && asset.type === 'glb') ||
+      (selectedCategory === 'others' && !['image', 'video', 'document', 'glb'].includes(asset.type))
+
+    return matchesQuery && matchesCategory
+  })
+
+  if (loading) return <Text fontSize="sm">Loading assets…</Text>
+  if (filteredAssets.length === 0) return <Text fontSize="sm">No assets match your search.</Text>
 
   return (
-    <SimpleGrid
-      columns={view === 'list' ? { base: 1 } : { base: 1, sm: 2, lg: 3, xl: 5 }}
-      gap={{ base: 4, md: 3 }}
-      w="full"
-    >
-      {filteredAssets.map((asset) => (
-        <AssetPopover key={asset.id} asset={asset} view={view} onPreview={(src: string) => setPreviewSrc(src)} />
-      ))}
-    </SimpleGrid>
+    <Box>
+      {filteredAssets.length > 0 && (
+        <Box mb={4}>
+          <ViewType
+            assetCount={filteredAssets.length}
+            totalAssetCount={assets.length}
+            initialView={currentView}
+            onChange={(view: ViewMode) => setCurrentView(view)}
+          />
+        </Box>
+      )}
+
+      <SimpleGrid
+        columns={currentView === 'list' ? { base: 1 } : { base: 1, sm: 2, lg: 3, xl: 5 }}
+        gap={{ base: 4, md: 3 }}
+        w="full"
+      >
+        {filteredAssets.map((asset) => (
+          <AssetPopover
+            key={asset.id}
+            asset={asset}
+            view={currentView}
+            onPreview={(src: string) => setPreviewSrc(src)}
+          />
+        ))}
+      </SimpleGrid>
+    </Box>
   )
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import type { ElementType, ReactNode } from 'react';
-
 import {
   Box,
   Flex,
@@ -17,7 +16,7 @@ import {
 } from '@chakra-ui/react';
 
 import type { CurrentUser } from '@/lib/auth';
-import { BsFolder2 } from 'react-icons/bs';
+import { BsFolder2, BsBoxFill, BsThreeDots } from 'react-icons/bs';
 import {
   FiUpload,
   FiImage,
@@ -31,15 +30,18 @@ import LogoutButton from '../auth/LogoutButton';
 import Link from 'next/link';
 import { useEffect, useState } from "react";
 
+type Category = 'all' | 'images' | 'videos' | 'documents' | 'glb' | 'others';
+
 type SidebarProps = {
   user: CurrentUser;
   children?: ReactNode;
+  onCategoryChange?: (category: 'all' | 'images' | 'videos' | 'documents' | 'glb' | 'others') => void;
 };
 
-export default function Sidebar({ user, children }: SidebarProps) {
+export default function Sidebar({ user, children, onCategoryChange }: SidebarProps) {
   const { open, onOpen, setOpen } = useDisclosure();
   const userRole = user.role?.toLowerCase() ?? null;
- // const username = user.username || 'User';
+
   const content = children ?? (
     <Stack gap={3} color={{ base: 'gray.600', _dark: 'gray.300' }}>
       <Text>Select an option from the sidebar to get started.</Text>
@@ -48,13 +50,13 @@ export default function Sidebar({ user, children }: SidebarProps) {
 
   return (
     <Box as="section" minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.800' }}>
-      <SidebarContent display={{ base: 'none', md: 'unset' }} userRole={userRole} />
+      <SidebarContent display={{ base: 'none', md: 'unset' }} userRole={userRole} onCategoryChange={onCategoryChange} />
       <Drawer.Root open={open} onOpenChange={(event) => setOpen(event.open)} placement="start">
         <Portal>
           <Drawer.Backdrop />
           <Drawer.Positioner>
             <Drawer.Content>
-              <SidebarContent w="full" borderRight="none" userRole={userRole} />
+              <SidebarContent w="full" borderRight="none" userRole={userRole} onCategoryChange={onCategoryChange} />
             </Drawer.Content>
           </Drawer.Positioner>
         </Portal>
@@ -70,9 +72,7 @@ export default function Sidebar({ user, children }: SidebarProps) {
             >
               <FiMenu />
             </IconButton>
-
           </Flex>
-
           {content}
         </Box>
       </Box>
@@ -82,9 +82,10 @@ export default function Sidebar({ user, children }: SidebarProps) {
 
 type SidebarContentProps = BoxProps & {
   userRole: string | null;
+  onCategoryChange?: (category: Category) => void;
 };
 
-const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
+const SidebarContent = ({ userRole, onCategoryChange, ...props }: SidebarContentProps) => {
   const canManageUsers = userRole === 'admin';
   const canViewInsights = userRole === 'admin' || userRole === 'editor';
   const showAdminSection = canManageUsers || canViewInsights;
@@ -95,6 +96,8 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
     images: 0,
     videos: 0,
     documents: 0,
+    glb: 0,
+    others: 0,
   });
 
   useEffect(() => {
@@ -130,7 +133,6 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
       {...props}
     >
       <Flex direction="column" h="full" px="4" py="5" gap="4">
-        {/* Upload button */}
         {canUpload && (
           <Link href="/asset-upload">
             <Button w="full" justifyContent="center" variant="outline" gap="2">
@@ -140,70 +142,31 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
           </Link>
         )}
 
-        {/* Highlighted All Assets tile */}
-        <Flex
-          align="center"
-          gap="3"
-          px="4"
-          py="3"
-          rounded="xl"
-          cursor="pointer"
+        <Flex align="center" gap="3" px="4" py="3" rounded="xl" cursor="pointer"
           _hover={{ bg: { base: 'gray.800', _dark: 'gray.600' } }}
           bg={{ base: 'black', _dark: 'gray.800' }}
-          color={{ base: 'white', _dark: 'gray.100' }}
-
-        // align="center"
-        // gap="3"
-        // px="4"
-        // py="3"
-        // cursor="pointer"
-        // w="full"
-        // bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-        // color="white"
-        // _hover={{
-        //   transform: 'translateY(-1px)',
-        //   shadow: 'lg'
-        // }}
-        // _active={{
-        //   transform: 'translateY(0)'
-        // }}
-        // transition="all 0.2s"
-        // borderRadius="lg"
-        // fontWeight="semibold"
-        >
+          color={{ base: 'white', _dark: 'gray.100' }}>
           <Icon as={BsFolder2} />
           <Text fontWeight="semibold">All Assets</Text>
         </Flex>
 
-        {/* Folders section */}
         <Box pt="2">
-          <Text
-            fontSize="xs"
-            fontWeight="bold"
-            letterSpacing="widest"
-            mb="2"
-            opacity={0.7}
-          >
+          <Text fontSize="xs" fontWeight="bold" letterSpacing="widest" mb="2" opacity={0.7}>
             FOLDERS
           </Text>
           <Stack gap="1">
-            <SidebarItem icon={BsFolder2} label="All Assets" link='/dashboard' count={assetCounts.all} />
-            <SidebarItem icon={FiImage} label="Images" count={assetCounts.images} />
-            <SidebarItem icon={FiVideo} label="Videos" count={assetCounts.videos} />
-            <SidebarItem icon={FiFileText} label="Documents" count={assetCounts.documents} />
+            <SidebarItem icon={BsFolder2} label="All Assets" count={assetCounts.all} onClick={() => onCategoryChange?.('all')} link='/dashboard'/>
+            <SidebarItem icon={FiImage} label="Images" count={assetCounts.images} onClick={() => onCategoryChange?.('images')} link='/dashboard'/>
+            <SidebarItem icon={FiVideo} label="Videos" count={assetCounts.videos} onClick={() => onCategoryChange?.('videos')} link='/dashboard'/>
+            <SidebarItem icon={FiFileText} label="Documents" count={assetCounts.documents} onClick={() => onCategoryChange?.('documents')} link='/dashboard'/>
+            <SidebarItem icon={BsBoxFill} label="3D Models" count={assetCounts.glb} onClick={() => onCategoryChange?.('glb')} link='/dashboard'/>
+            <SidebarItem icon={BsThreeDots} label="Others" count={assetCounts.others} onClick={() => onCategoryChange?.('others')} link='/dashboard'/>
           </Stack>
         </Box>
 
-
         {showAdminSection && (
           <Box pt="4">
-            <Text
-              fontSize="xs"
-              fontWeight="bold"
-              letterSpacing="widest"
-              mb="2"
-              opacity={0.7}
-            >
+            <Text fontSize="xs" fontWeight="bold" letterSpacing="widest" mb="2" opacity={0.7}>
               ADMIN TOOLS
             </Text>
             <Stack gap="1">
@@ -230,9 +193,10 @@ type SidebarItemProps = {
   label: string;
   count?: number;
   link?: string;
+  onClick?: () => void; // ✅ added
 };
 
-const SidebarItem = ({ icon, label, count, link }: SidebarItemProps) => {
+const SidebarItem = ({ icon, label, count, link, onClick  }: SidebarItemProps) => {
   const itemContent = (
     <Flex
       align="center"
@@ -243,6 +207,7 @@ const SidebarItem = ({ icon, label, count, link }: SidebarItemProps) => {
       cursor="pointer"
       transition=".15s ease"
       _hover={{ bg: { base: 'gray.100', _dark: 'gray.700' } }}
+      onClick={onClick} 
     >
       <Flex align="center" gap="3">
         <Icon as={icon} boxSize="4" opacity={0.7} />
@@ -266,4 +231,3 @@ const SidebarItem = ({ icon, label, count, link }: SidebarItemProps) => {
   return link ? <Link href={link}>{itemContent}</Link> : itemContent;
   // To allow link to encapsulate the entire item for better clickability
 };
-
