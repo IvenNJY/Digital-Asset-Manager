@@ -512,40 +512,21 @@ def delete_asset_view(request, asset_id):
 
     return JsonResponse({"detail": "Asset deleted successfully."}, status=200)
 
-from django.http import JsonResponse
-from .models import Asset
-
 def asset_summary_view(request):
-    # Fetch all assets
-    all_assets = Asset.objects.all()
+    # Count based on asset_type
+    all_count = Asset.objects.count()
+    image_count = Asset.objects.filter(asset_type='image').count()
+    video_count = Asset.objects.filter(asset_type='video').count()
+    document_count = Asset.objects.filter(asset_type='document').count()
+    glb_count = Asset.objects.filter(asset_type='glb').count()
+    other_count = Asset.objects.filter(asset_type='other').count()
 
-    # Count based on file extensions
-    image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg')
-    video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm')
-    doc_exts = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt')
-
-    # Categorize and count
-    image_count = all_assets.filter(file_path__iendswith=image_exts[0])
-    for ext in image_exts[1:]:
-        image_count = image_count | all_assets.filter(file_path__iendswith=ext)
-    image_count = image_count.count()
-
-    video_count = all_assets.filter(file_path__iendswith=video_exts[0])
-    for ext in video_exts[1:]:
-        video_count = video_count | all_assets.filter(file_path__iendswith=ext)
-    video_count = video_count.count()
-
-    doc_count = all_assets.filter(file_path__iendswith=doc_exts[0])
-    for ext in doc_exts[1:]:
-        doc_count = doc_count | all_assets.filter(file_path__iendswith=ext)
-    doc_count = doc_count.count()
-
-    all_count = all_assets.count()
-
-    # Return JSON
     return JsonResponse({
         "all": all_count,
         "images": image_count,
         "videos": video_count,
-        "documents": doc_count
+        "documents": document_count,
+        "glb": glb_count,
+        "others": other_count,
     })
+
