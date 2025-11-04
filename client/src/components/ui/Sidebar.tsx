@@ -208,7 +208,7 @@ const SidebarContent = ({ userRole, ...props }: SidebarContentProps) => {
             </Text>
             <Stack gap="1">
               {canManageUsers && <SidebarItem icon={FiUsers} label="User Management" link='./user_management' />}
-              {canViewInsights && <SidebarItem icon={FiBarChart2} label="Insights" />}
+              {canViewInsights && <SidebarItem icon={FiBarChart2} label="Insights" link='./insights' />}
             </Stack>
           </Box>
         )}
