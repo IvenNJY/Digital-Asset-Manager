@@ -88,7 +88,7 @@ export default function VersionHistory({ versions }: VersionHistoryProps) {
   };
 
   return (
-    <VStack align="start" w="full" gap={4}>
+    <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
       <Text fontWeight="semibold" fontSize="lg">
         Version History ({versions.length})
       </Text>
