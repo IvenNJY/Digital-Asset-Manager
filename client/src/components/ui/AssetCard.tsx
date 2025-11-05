@@ -124,6 +124,8 @@ export default function AssetCard({
         overflow="hidden"
         display="flex"
         flexDirection={{ base: "column", md: "row" }}
+        transition={"0.3s all ease-in-out"}
+        _hover={{ shadow: "md" }}
       >
         <Box w={{ base: "100%", md: "240px" }} maxH="180px" flexShrink={0}>
           <Media />
@@ -168,6 +170,8 @@ export default function AssetCard({
       overflow="hidden"
       display="flex"
       flexDirection="column"
+      transition={"0.3s all ease-in-out"}
+      _hover={{ shadow: "md" }}
     >
       <Media />
 

@@ -142,25 +142,35 @@ const SidebarContent = ({ userRole, onCategoryChange, ...props }: SidebarContent
           </Link>
         )}
 
-        <Flex align="center" gap="3" px="4" py="3" rounded="xl" cursor="pointer"
-          _hover={{ bg: { base: 'gray.800', _dark: 'gray.600' } }}
-          bg={{ base: 'black', _dark: 'gray.800' }}
-          color={{ base: 'white', _dark: 'gray.100' }}>
-          <Icon as={BsFolder2} />
-          <Text fontWeight="semibold">All Assets</Text>
-        </Flex>
+        <Link href="/dashboard" onClick={() => onCategoryChange?.('all')}>
+          <Flex align="center" gap="3" px="4" py="3" rounded="xl" cursor="pointer"
+            _hover={{ bg: { base: 'gray.800', _dark: 'gray.600' } }}
+            bg={{ base: 'black', _dark: 'gray.800' }}
+            color={{ base: 'white', _dark: 'gray.100' }}>
+            <Icon as={BsFolder2} />
+            <Text fontWeight="semibold" >All Assets</Text>
+          </Flex>
+        </Link>
 
         <Box pt="2">
           <Text fontSize="xs" fontWeight="bold" letterSpacing="widest" mb="2" opacity={0.7}>
-            FOLDERS
+            ASSETS
           </Text>
           <Stack gap="1">
-            <SidebarItem icon={BsFolder2} label="All Assets" count={assetCounts.all} onClick={() => onCategoryChange?.('all')} link='/dashboard'/>
             <SidebarItem icon={FiImage} label="Images" count={assetCounts.images} onClick={() => onCategoryChange?.('images')} link='/dashboard'/>
             <SidebarItem icon={FiVideo} label="Videos" count={assetCounts.videos} onClick={() => onCategoryChange?.('videos')} link='/dashboard'/>
             <SidebarItem icon={FiFileText} label="Documents" count={assetCounts.documents} onClick={() => onCategoryChange?.('documents')} link='/dashboard'/>
             <SidebarItem icon={BsBoxFill} label="3D Models" count={assetCounts.glb} onClick={() => onCategoryChange?.('glb')} link='/dashboard'/>
             <SidebarItem icon={BsThreeDots} label="Others" count={assetCounts.others} onClick={() => onCategoryChange?.('others')} link='/dashboard'/>
+          </Stack>
+        </Box>
+
+        <Box pt="2">
+          <Text fontSize="xs" fontWeight="bold" letterSpacing="widest" mb="2" opacity={0.7}>
+            FOLDER
+          </Text>
+          <Stack gap="1">
+            <SidebarItem icon={BsFolder2} label="Folders" link='/folders'/>
           </Stack>
         </Box>
 

@@ -8,6 +8,7 @@ interface AssetLoaderProps {
   view: 'grid' | 'list';
   searchQuery?: string;
   selectedCategory?: 'all' | 'images' | 'videos' | 'documents' | 'glb' | 'others'; // 👈 add this
+  folderId?: number; // optional filter by folder
 }
 
 type ApiAsset = {
@@ -31,6 +32,11 @@ type ApiAsset = {
     value?: string
   }>
   tags?: string[]
+  // comes from AssetSerializer.folder_mappings
+  folders?: Array<{
+    folder: number
+    folder_name?: string
+  }>
 }
 
 type Asset = {
@@ -49,6 +55,7 @@ type Asset = {
     data_type: string
   }>
   tags: string[]
+  folderIds?: number[]
 }
 
 const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(/\/$/, '')
@@ -58,10 +65,10 @@ const buildUrl = (path: string) => {
   return `${backendBase}/media/${path}`
 }
 
-function AssetLoader({ view, searchQuery = '', selectedCategory = 'all' }: AssetLoaderProps) {
+function AssetLoader({ view, searchQuery = '', selectedCategory = 'all', folderId }: AssetLoaderProps) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
+  // preview is handled inside AssetMenu; no preview state needed here
   const [currentView, setCurrentView] = useState<'grid' | 'list'>(view)
   
   useEffect(() => {
@@ -100,6 +107,7 @@ function AssetLoader({ view, searchQuery = '', selectedCategory = 'all' }: Asset
               data_type: meta.data_type ?? 'string',
             })),
             tags: item.tags ?? [],
+            folderIds: (item.folders ?? []).map((f) => f.folder),
           }
         })
 
@@ -137,7 +145,13 @@ function AssetLoader({ view, searchQuery = '', selectedCategory = 'all' }: Asset
       (selectedCategory === 'glb' && asset.type === 'glb') ||
       (selectedCategory === 'others' && !['image', 'video', 'document', 'glb'].includes(asset.type))
 
-    return matchesQuery && matchesCategory
+    // Filter by folder if provided
+    const matchesFolder =
+      typeof folderId === 'number'
+        ? (asset.folderIds ?? []).includes(folderId)
+        : true
+
+    return matchesQuery && matchesCategory && matchesFolder
   })
 
   if (loading) return <Text fontSize="sm">Loading assets…</Text>
@@ -166,7 +180,7 @@ function AssetLoader({ view, searchQuery = '', selectedCategory = 'all' }: Asset
             key={asset.id}
             asset={asset}
             view={currentView}
-            onPreview={(src: string) => setPreviewSrc(src)}
+            onPreview={() => {}}
           />
         ))}
       </SimpleGrid>
