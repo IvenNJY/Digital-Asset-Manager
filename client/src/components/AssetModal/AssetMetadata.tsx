@@ -126,7 +126,7 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
   };
 
   return (
-    <VStack align="start" gap={3} w="full">
+    <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
       <HStack justify="space-between" w="full" mb={2}>
         <Text fontWeight="semibold">Metadata</Text>
         {canEditMetadata && (
