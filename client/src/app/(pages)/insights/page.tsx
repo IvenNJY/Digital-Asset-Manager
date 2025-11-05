@@ -39,7 +39,7 @@ function InsightsPage() {
   };
 
   return (
-    <PrivateRoute roles={["admin"]} redirectTo="/dashboard">
+    <PrivateRoute roles={["admin","editor"]} redirectTo="/dashboard">
       {(user) => (
         <Sidebar user={user}>
           <Stack
