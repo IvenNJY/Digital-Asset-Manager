@@ -24,4 +24,9 @@ urlpatterns = [
 
     #Folders
     path("folders/", views.folder_list_view, name="folder-list"),
+    path("folders/create/", views.create_folder_view, name="folder-create"),
+    path("folders/rename/<int:folder_id>/", views.rename_folder_view, name="folder-rename"),
+    path("folders/delete/", views.delete_folder_view, name="folder-delete"),
+    path("folders/assign/", views.assign_asset_to_folder_view, name="folder-assign-asset"),
+    path("folders/unassign/", views.unassign_asset_from_folder_view, name="folder-unassign-asset"),
 ]
