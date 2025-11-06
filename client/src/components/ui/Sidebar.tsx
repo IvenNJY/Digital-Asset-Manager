@@ -186,12 +186,10 @@ const SidebarContent = ({ userRole, onCategoryChange, ...props }: SidebarContent
           </Box>
         )}
 
-        <LogoutButton />
+        
 
         <Box mt="auto">
-          <Text fontSize="sm" mb="2" opacity={0.8}>
-            Storage Used: 2.4 GB / 10 GB
-          </Text>
+          <LogoutButton />
         </Box>
       </Flex>
     </Box>
