@@ -34,7 +34,7 @@ export default function VersionPreview({ asset }: { asset: VersionAsset }) {
   };
 
   return (
-    <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
+    <VStack align="start" w="full" gap={4}>
       {asset.description && (
         <Box w="full" bg={mutedBg} p={3} borderRadius="md">
           <Text color={muted}>{asset.description}</Text>

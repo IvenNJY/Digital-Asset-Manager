@@ -18,19 +18,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
-import mimetypes
-# in settings.py (optional if using WhiteNoise or static serving)
-
-mimetypes.add_type("model/gltf-binary", ".glb")
-
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
-X_FRAME_OPTIONS = 'ALLOWALL'
-
 
 
 # Quick-start development settings - unsuitable for production
@@ -105,9 +97,9 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
+        'NAME': 'digital_asset_manager',
         'USER': 'postgres',
-        'PASSWORD': '',
+        'PASSWORD': 'hhlai',
         'HOST': 'localhost',
         'PORT': '5432'
     }

@@ -8,12 +8,12 @@ import {
   Text,
   Table,
   Input,
-  IconButton
+  IconButton,
+  Spinner
 } from "@chakra-ui/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FiX, FiPlus } from "react-icons/fi";
 import { toaster } from "@/components/ui/toaster";
-import { useAuthUser } from "@/components/auth/PrivateRoute";
 
 type MetadataItem = {
   key: string;
@@ -29,25 +29,7 @@ type AssetMetadataProps = {
 export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMetadataProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedAsset, setEditedAsset] = useState<MetadataItem[]>(initialMetadata);
-  const [originalMetadata, setOriginalMetadata] = useState<MetadataItem[]>(initialMetadata);
   const [isLoading, setIsLoading] = useState(false);
-  const authUser = useAuthUser();
-  const canEditMetadata = useMemo(() => {
-    const role = authUser?.role?.toLowerCase() ?? null;
-    return role === "admin" || role === "editor";
-  }, [authUser?.role]);
-
-  const initialSnapshot = useRef<string | null>(null);
-
-  useEffect(() => {
-    const snapshot = JSON.stringify(initialMetadata);
-    if (initialSnapshot.current === snapshot) {
-      return;
-    }
-    initialSnapshot.current = snapshot;
-    setEditedAsset(initialMetadata);
-    setOriginalMetadata(initialMetadata);
-  }, [assetId, initialMetadata]);
 
   // Fetch metadata on mount
   useEffect(() => {
@@ -58,9 +40,7 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
         });
         if (res.ok) {
           const data = await res.json();
-          const serverMetadata: MetadataItem[] = data.metadata || [];
-          setEditedAsset(serverMetadata);
-          setOriginalMetadata(serverMetadata);
+          setEditedAsset(data.metadata || []);
         }
       } catch (err) {
         console.error("Failed to load metadata:", err);
@@ -68,12 +48,6 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
     };
     fetchMetadata();
   }, [assetId]);
-
-  useEffect(() => {
-    if (!canEditMetadata && isEditing) {
-      setIsEditing(false);
-    }
-  }, [canEditMetadata, isEditing]);
 
   // --- Delete ---
   const handleDelete = (index: number) => {
@@ -90,7 +64,6 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
 
   // --- Save to Django ---
   const handleSave = async () => {
-    if (isLoading) return;
     setIsLoading(true);
     try {
       const res = await fetch(`http://localhost:8000/api/assets/${assetId}/metadata/`, {
@@ -106,19 +79,15 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
       }
 
       setIsEditing(false);
-      const snapshot = editedAsset.map((item) => ({ ...item }));
-      setOriginalMetadata(snapshot);
-      setEditedAsset(snapshot);
       toaster.success({
         title: "Metadata saved",
         description: "Your changes are live",
         action: { label: "Refresh", onClick: () => window.location.reload() },
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Save failed";
+    } catch (err: any) {
       toaster.error({
         title: "Save failed",
-        description: message,
+        description: err.message,
       });
     } finally {
       setIsLoading(false);
@@ -126,41 +95,38 @@ export default function AssetMetadata({ assetId, initialMetadata = [] }: AssetMe
   };
 
   return (
-    <VStack align="start" w="full" gap={4} minH="300px" maxH="90vh" overflowY="auto">
+    <VStack align="start" gap={3} w="full">
       <HStack justify="space-between" w="full" mb={2}>
         <Text fontWeight="semibold">Metadata</Text>
-        {canEditMetadata && (
-          !isEditing ? (
-            <Button size="sm" onClick={() => setIsEditing(true)}>
-              Edit
+        {!isEditing ? (
+          <Button size="sm" onClick={() => setIsEditing(true)}>
+            Edit
+          </Button>
+        ) : (
+          <HStack>
+            <Button
+              size="sm"
+              colorScheme="blue"
+              onClick={handleSave}
+            >
+              Save
             </Button>
-          ) : (
-            <HStack>
-              <Button
-                size="sm"
-                colorScheme="blue"
-                onClick={handleSave}
-              >
-                {isLoading ? "Saving…" : "Save"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (isLoading) return;
-                  setEditedAsset(originalMetadata);
-                  setIsEditing(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </HStack>
-          )
-  )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditedAsset(initialMetadata);
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </HStack>
+        )}
       </HStack>
 
       {/* VIEW MODE */}
-      {!isEditing || !canEditMetadata ? (
+      {!isEditing ? (
         editedAsset.length === 0 ? (
           <Box py={2} w="full">
             <Text fontSize="sm" color="gray.500">

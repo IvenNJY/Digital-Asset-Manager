@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Box,
   Button,
@@ -30,7 +30,6 @@ import { fetchUsers, type ManagedUser } from "@/lib/auth"
 import DeleteUserButton from "./DeleteUserButton"
 import EditUserButton from "./EditUserButton"
 import AddUserButton from "./AddUserButton"
-import ImportUsersButton from "./ImportUsersButton"
 import {
   ColumnHeaderWithFilter,
   type ColumnFilterConfig,
@@ -63,35 +62,28 @@ function UsersTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [filtersExpanded, setFiltersExpanded] = useState(false)
 
-  const isMountedRef = useRef(true)
-
   useEffect(() => {
-    isMountedRef.current = true
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [])
+    let isMounted = true
 
-  const refreshUsers = useCallback(async () => {
-    setLoading(true)
-    try {
+    const loadUsers = async () => {
+      setLoading(true)
       const data = await fetchUsers()
-      if (!isMountedRef.current) return
+      if (!isMounted) return
       setUsers(data)
-    } catch (error) {
+      setLoading(false)
+    }
+
+    loadUsers().catch((error) => {
       console.error("Failed to load users", error)
-      if (!isMountedRef.current) return
+      if (!isMounted) return
       setUsers([])
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
+      setLoading(false)
+    })
+
+    return () => {
+      isMounted = false
     }
   }, [])
-
-  useEffect(() => {
-    void refreshUsers()
-  }, [refreshUsers])
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
@@ -108,10 +100,6 @@ function UsersTable() {
   const handleUserCreated = useCallback((createdUser: ManagedUser) => {
     setUsers((prev) => [createdUser, ...prev])
   }, [])
-
-  const handleUsersImported = useCallback(async () => {
-    await refreshUsers()
-  }, [refreshUsers])
 
   const roleOptions = useMemo<ColumnFilterConfig["options"]>(
     () => [
@@ -252,7 +240,6 @@ function UsersTable() {
         <HStack justify="space-between" align={{ base: "stretch", md: "center" }} flexWrap="wrap" gap={3} mt={2}>
           <Text fontWeight="semibold">All Users</Text>
           <HStack gap={3} align="center">
-            <ImportUsersButton onImported={handleUsersImported} />
             <AddUserButton onCreated={handleUserCreated} />
             <IconButton
               aria-label="Toggle filters"

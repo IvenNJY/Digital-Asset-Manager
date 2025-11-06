@@ -1,8 +1,9 @@
+"use client"
+
 import { useMemo, useState } from "react"
 import {
   Box,
   Button,
-  Checkbox,
   HStack,
   Input,
   Popover,
@@ -30,6 +31,20 @@ const tagOptions = [
   "template",
 ]
 
+function buildQuery(params: {
+  category?: string | null
+  tags?: string[]
+  startDate?: string
+  endDate?: string
+}) {
+  const search = new URLSearchParams()
+  if (params.category) search.set("category", params.category)
+  if (params.tags && params.tags.length) search.set("tags", params.tags.join(","))
+  if (params.startDate) search.set("start_date", params.startDate)
+  if (params.endDate) search.set("end_date", params.endDate)
+  return search.toString()
+}
+
 function FilterMenu() {
   const [category, setCategory] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
@@ -55,6 +70,57 @@ function FilterMenu() {
     setSelectedTags(new Set())
     setStartDate("")
     setEndDate("")
+
+    // also clear URL params
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("category")
+      url.searchParams.delete("tags")
+      url.searchParams.delete("start_date")
+      url.searchParams.delete("end_date")
+      window.history.replaceState({}, "", url.pathname + url.search)
+      // notify listeners that filters were cleared
+      window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: "" } }))
+      console.log("[FilterMenu] filters reset and event dispatched (empty params)")
+    } catch (e) {
+      // ignore in SSR or if window not present
+    }
+  }
+
+  const applyFilters = () => {
+    const tagsArray = Array.from(selectedTags)
+    const paramsStr = buildQuery({
+      category: category ?? undefined,
+      tags: tagsArray.length ? tagsArray : undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    })
+
+    // update URL (no reload) and dispatch event with params
+    try {
+      const url = new URL(window.location.href)
+      // remove previous related params
+      url.searchParams.delete("category")
+      url.searchParams.delete("tags")
+      url.searchParams.delete("start_date")
+      url.searchParams.delete("end_date")
+
+      if (paramsStr) {
+        const newSearch = new URLSearchParams(paramsStr)
+        for (const [k, v] of newSearch.entries()) {
+          url.searchParams.set(k, v)
+        }
+      }
+      window.history.replaceState({}, "", url.pathname + url.search)
+
+      // debugging log so you can see in console
+      console.log("[FilterMenu] applying filters, params:", paramsStr)
+
+      // emit the event so other components can listen
+      window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: paramsStr } }))
+    } catch (e) {
+      console.error("[FilterMenu] applyFilters error:", e)
+    }
   }
 
   return (
@@ -101,17 +167,20 @@ function FilterMenu() {
                     {tags.map((tag) => {
                       const checked = selectedTags.has(tag)
                       return (
-                        <Checkbox.Root
-                          key={tag}
-                          checked={checked}
-                          onCheckedChange={(details) => toggleTag(tag, details.checked === true)}
-                          display="flex"
-                          alignItems="center"
-                          gap={2}
-                        >
-                          <Checkbox.Control />
-                          <Checkbox.Label textTransform="capitalize">{tag}</Checkbox.Label>
-                        </Checkbox.Root>
+                        // keep your Checkbox components as they are; just ensure
+                        // onCheckedChange calls toggleTag correctly
+                        <div key={tag} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {/* replace Checkbox.Root with your checkbox component if needed */}
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => toggleTag(tag, e.target.checked)}
+                            id={`tag-${tag}`}
+                          />
+                          <label htmlFor={`tag-${tag}`} style={{ textTransform: "capitalize", fontSize: 13 }}>
+                            {tag}
+                          </label>
+                        </div>
                       )
                     })}
                   </Stack>
@@ -140,7 +209,7 @@ function FilterMenu() {
                 <Button variant="ghost" size="sm" onClick={resetFilters}>
                   Reset
                 </Button>
-                <Button size="sm" colorPalette="blue">
+                <Button size="sm" colorScheme="blue" onClick={applyFilters}>
                   Apply Filters
                 </Button>
               </HStack>

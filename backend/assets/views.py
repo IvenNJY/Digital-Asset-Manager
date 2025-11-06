@@ -6,8 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST,require_http_methods
 from django.contrib.auth.decorators import login_required
 
-from .models import Asset, AssetMetadata, Folder, Version, Tag, AssetTag, MetadataField,AssetFolder
-from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
+from .models import Asset, AssetMetadata, Version, Tag, AssetTag, MetadataField
+from .serializers import AssetSerializer, VersionSerializer
 
 
 # -----------------------------
@@ -15,14 +15,6 @@ from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
 # -----------------------------
 def _is_admin_or_editor(user):
     return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
-
-# NEW: Helper to get/create root "media" folder
-def _get_media_root(user):
-    return Folder.objects.get_or_create(
-        name="media",
-        parent_folder=None,
-        defaults={"created_by": user, "description": "Root media folder"}
-    )[0]
 
 
 # -----------------------------
@@ -42,6 +34,7 @@ def upload_asset_view(request):
     # Get optional fields
     name = request.POST.get("name") or upload_file.name.split("/")[-1]
     asset_type = request.POST.get("asset_type", "other")
+    folder = request.POST.get("folder")
     description = request.POST.get("description", "")
     tags_str = request.POST.get("tags", "")
 
@@ -61,6 +54,7 @@ def upload_asset_view(request):
         asset = Asset.objects.create(
             name=name,
             asset_type=asset_type,
+            folder_id=folder if folder else None,
             upload_file=upload_file,
             uploaded_by=request.user,
             description=description,
@@ -70,39 +64,7 @@ def upload_asset_view(request):
         asset.file_path = upload_file.name
         asset.size_bytes = upload_file.size
         asset.save()
-        # 2. FOLDER LOGIC (NOW SAFE)
-        root_media = _get_media_root(request.user)
-        assigned_folders = []
 
-        folder_id = request.POST.get("folder")
-        new_folder_name = request.POST.get("new_folder_name")
-
-        if new_folder_name:
-            if not new_folder_name.strip():
-                return JsonResponse({"detail": "New folder name cannot be empty."}, status=400)
-            if Folder.objects.filter(name=new_folder_name, parent_folder=root_media).exists():
-                return JsonResponse({"detail": "Folder with this name already exists under media."}, status=400)
-            new_folder = Folder.objects.create(
-                name=new_folder_name.strip(),
-                parent_folder=root_media,
-                created_by=request.user,
-                description="Created during asset upload"
-            )
-            assigned_folders.append(new_folder)
-
-        elif folder_id:
-            try:
-                selected_folder = Folder.objects.get(folder_id=folder_id)
-                assigned_folders.append(selected_folder)
-            except Folder.DoesNotExist:
-                return JsonResponse({"detail": "Selected folder not found."}, status=404)
-        else:
-            assigned_folders.append(root_media)
-
-        # 3. LINK ASSET TO FOLDER(S)
-        for folder in assigned_folders:
-            AssetFolder.objects.create(asset=asset, folder=folder)
-            
         # Create initial Version
         version = Version.objects.create(
             asset=asset,
@@ -117,7 +79,7 @@ def upload_asset_view(request):
         asset.current_version = version
         asset.save(update_fields=["current_version"])
 
-        # Handle tags
+        # Handle tags – FIXED BUG
         if tags_str.strip():
             tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
             for tag_name in tag_names:
@@ -150,171 +112,6 @@ def upload_asset_view(request):
     serializer = AssetSerializer(asset, context={"request": request})
     return JsonResponse(serializer.data, status=201)
 
-# -----------------------------
-# List all Folders (NEW)
-# -----------------------------
-@csrf_exempt
-@require_GET
-def folder_list_view(request):
-    """GET /api/assets/folders/ — Returns all folders."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"detail": "Not authenticated."}, status=401)
-
-    # For simplicity, list all folders (flat); can add hierarchy later
-    folders = Folder.objects.all().select_related("parent_folder", "created_by")
-    serializer = FolderSerializer(folders, many=True, context={"request": request})
-    return JsonResponse({"folders": serializer.data}, status=200)
-
-# -----------------------------
-# Create a Folder (NEW)
-# -----------------------------
-@csrf_exempt
-@require_POST
-def create_folder_view(request):
-    """POST /api/assets/folders/create/ with JSON {"name": "...", "parent_folder_id": optional} (admin/editor)."""
-    if not _is_admin_or_editor(request.user):
-        return JsonResponse({"detail": "Not authorized."}, status=403)
-
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
-
-    name = (payload.get("name") or "").strip()
-    description = (payload.get("description") or "").strip()
-    if not name:
-        return JsonResponse({"detail": "Folder name is required."}, status=400)
-
-    parent_id = payload.get("parent_folder_id")
-    if parent_id:
-        try:
-            parent = Folder.objects.get(pk=parent_id)
-        except Folder.DoesNotExist:
-            return JsonResponse({"detail": "Parent folder not found."}, status=404)
-    else:
-        parent = _get_media_root(request.user)
-
-    # Unique among siblings
-    if Folder.objects.filter(parent_folder=parent, name=name).exists():
-        return JsonResponse({"detail": "A folder with this name already exists here."}, status=400)
-
-    folder = Folder.objects.create(name=name, parent_folder=parent, created_by=request.user, description=description)
-    serializer = FolderSerializer(folder, context={"request": request})
-    return JsonResponse(serializer.data, status=201)
-
-# -----------------------------
-# Rename a Folder (NEW)
-# -----------------------------
-@csrf_exempt
-@require_POST
-def rename_folder_view(request, folder_id: int):
-    """POST /api/assets/folders/rename/<id>/ with JSON {"name": "New Name"} (admin/editor only)."""
-    if not _is_admin_or_editor(request.user):
-        return JsonResponse({"detail": "Not authorized."}, status=403)
-
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
-
-    new_name = (payload.get("name") or "").strip()
-    if not new_name:
-        return JsonResponse({"detail": "New folder name is required."}, status=400)
-
-    try:
-        folder = Folder.objects.get(pk=folder_id)
-    except Folder.DoesNotExist:
-        return JsonResponse({"detail": "Folder not found."}, status=404)
-
-    # Prevent renaming root media to empty/dangerous (optional: prevent renaming at all)
-    if folder.parent_folder is None and folder.name.lower() == "media":
-        # allow rename if desired; here we disallow to keep consistency
-        return JsonResponse({"detail": "Root media folder cannot be renamed."}, status=400)
-
-    # Ensure uniqueness under same parent
-    sibling_qs = Folder.objects.filter(parent_folder=folder.parent_folder, name=new_name)
-    if sibling_qs.exclude(pk=folder.pk).exists():
-        return JsonResponse({"detail": "A folder with this name already exists at this level."}, status=400)
-
-    folder.name = new_name
-    folder.save(update_fields=["name"])
-
-    serializer = FolderSerializer(folder, context={"request": request})
-    return JsonResponse(serializer.data, status=200)
-
-# -----------------------------
-# Delete a Folder (NEW)
-# -----------------------------
-@csrf_exempt
-@require_POST
-def delete_folder_view(request):
-    """POST /api/assets/folders/delete/ with JSON {"folder_id": <id>} (admin/editor only)."""
-    if not _is_admin_or_editor(request.user):
-        return JsonResponse({"detail": "Not authorized."}, status=403)
-
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
-
-    folder_id = payload.get("folder_id")
-    if not folder_id:
-        return JsonResponse({"detail": "folder_id is required."}, status=400)
-
-    try:
-        folder = Folder.objects.get(pk=folder_id)
-    except Folder.DoesNotExist:
-        return JsonResponse({"detail": "Folder not found."}, status=404)
-
-    # Prevent deleting the root media folder
-    if folder.parent_folder is None and folder.name.lower() == "media":
-        return JsonResponse({"detail": "Root media folder cannot be deleted."}, status=400)
-
-    # Deleting the folder cascades to subfolders and AssetFolder via FK rules; Assets.folder is SET_NULL
-    folder.delete()
-    return JsonResponse({"detail": "Folder deleted."}, status=200)
-
-# -----------------------------
-# Assign/Unassign Asset to Folder (NEW)
-# -----------------------------
-@csrf_exempt
-@require_POST
-def assign_asset_to_folder_view(request):
-    """POST /api/assets/folders/assign/ with JSON {"asset_id": ..., "folder_id": ...} (admin/editor)."""
-    if not _is_admin_or_editor(request.user):
-        return JsonResponse({"detail": "Not authorized."}, status=403)
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
-    asset_id = payload.get("asset_id")
-    folder_id = payload.get("folder_id")
-    if not asset_id or not folder_id:
-        return JsonResponse({"detail": "asset_id and folder_id are required."}, status=400)
-    try:
-        asset = Asset.objects.get(pk=asset_id)
-        folder = Folder.objects.get(pk=folder_id)
-    except (Asset.DoesNotExist, Folder.DoesNotExist):
-        return JsonResponse({"detail": "Asset or folder not found."}, status=404)
-    AssetFolder.objects.get_or_create(asset=asset, folder=folder)
-    return JsonResponse({"detail": "Assigned."}, status=200)
-
-@csrf_exempt
-@require_POST
-def unassign_asset_from_folder_view(request):
-    """POST /api/assets/folders/unassign/ with JSON {"asset_id": ..., "folder_id": ...} (admin/editor)."""
-    if not _is_admin_or_editor(request.user):
-        return JsonResponse({"detail": "Not authorized."}, status=403)
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
-    asset_id = payload.get("asset_id")
-    folder_id = payload.get("folder_id")
-    if not asset_id or not folder_id:
-        return JsonResponse({"detail": "asset_id and folder_id are required."}, status=400)
-    deleted, _ = AssetFolder.objects.filter(asset_id=asset_id, folder_id=folder_id).delete()
-    return JsonResponse({"detail": "Unassigned.", "deleted": deleted}, status=200)
 
 # -----------------------------
 # List all Assets
@@ -662,22 +459,3 @@ def delete_asset_view(request, asset_id):
         asset.delete()  # Deletes asset + cascade: versions, metadata, tags
 
     return JsonResponse({"detail": "Asset deleted successfully."}, status=200)
-
-def asset_summary_view(request):
-    # Count based on asset_type
-    all_count = Asset.objects.count()
-    image_count = Asset.objects.filter(asset_type='image').count()
-    video_count = Asset.objects.filter(asset_type='video').count()
-    document_count = Asset.objects.filter(asset_type='document').count()
-    glb_count = Asset.objects.filter(asset_type='glb').count()
-    other_count = Asset.objects.filter(asset_type='other').count()
-
-    return JsonResponse({
-        "all": all_count,
-        "images": image_count,
-        "videos": video_count,
-        "documents": document_count,
-        "glb": glb_count,
-        "others": other_count,
-    })
-
