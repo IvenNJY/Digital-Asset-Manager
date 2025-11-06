@@ -39,7 +39,8 @@ export default function LogoutButton() {
 
       <Dialog.Root open={open} placement={"center"} onOpenChange={({ open }) => setOpen(open)}>
         <Portal>
-          <Dialog.Positioner>
+          <Dialog.Positioner zIndex={"popover"}>
+            <Dialog.Backdrop />
             <Dialog.Content maxW="sm">
               <Dialog.Header>Confirm logout</Dialog.Header>
               <Dialog.Body>
