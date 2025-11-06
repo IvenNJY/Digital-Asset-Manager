@@ -106,3 +106,38 @@ export async function createUser(payload: CreateUserInput): Promise<ManagedUser>
 
   return data.user
 }
+
+export type BulkImportUsersResult = {
+  createdCount: number
+  skippedExisting: Array<{ row: number; email?: string }>
+  skippedInvalid: Array<{ row: number; reason: string }>
+}
+
+export async function bulkImportUsers(file: File): Promise<BulkImportUsersResult> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const response = await fetch(`/api/users/bulk-import`, {
+    method: "POST",
+    body: formData,
+  })
+
+  const text = await response.text()
+  let data: BulkImportUsersResult & { detail?: string }
+
+  try {
+    data = text ? (JSON.parse(text) as BulkImportUsersResult & { detail?: string }) : { createdCount: 0, skippedExisting: [], skippedInvalid: [] }
+  } catch {
+    data = { createdCount: 0, skippedExisting: [], skippedInvalid: [], detail: text || "Unexpected response from server." }
+  }
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to import users.")
+  }
+
+  return {
+    createdCount: data.createdCount ?? 0,
+    skippedExisting: data.skippedExisting ?? [],
+    skippedInvalid: data.skippedInvalid ?? [],
+  }
+}
