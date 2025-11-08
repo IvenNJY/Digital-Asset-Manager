@@ -70,6 +70,9 @@ def login_view(request):
 def user_list_view(request):
 	if not request.user.is_authenticated:
 		return JsonResponse({"detail": "Not authenticated."}, status=401)
+	
+	if not request.user.is_authenticated or not request.user.groups.filter(name='admin').exists():
+		return JsonResponse({"detail": "Not authorized."}, status=403)
 
 	UserModel = get_user_model()
 	users = UserModel.objects.all()
