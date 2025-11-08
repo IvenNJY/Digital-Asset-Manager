@@ -177,7 +177,7 @@ const SidebarContent = ({ userRole, onCategoryChange, ...props }: SidebarContent
         {showAdminSection && (
           <Box pt="4">
             <Text fontSize="xs" fontWeight="bold" letterSpacing="widest" mb="2" opacity={0.7}>
-              ADMIN TOOLS
+              ADDITIONAL TOOLS
             </Text>
             <Stack gap="1">
               {canManageUsers && <SidebarItem icon={FiUsers} label="User Management" link='./user_management' />}
