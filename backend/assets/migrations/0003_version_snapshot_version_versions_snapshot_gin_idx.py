@@ -1,0 +1,24 @@
+import django.contrib.postgres.indexes
+import django.core.serializers.json
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('assets', '0002_asset_upload_file_version_upload_file'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='version',
+            name='snapshot',
+            field=models.JSONField(blank=True, encoder=django.core.serializers.json.DjangoJSONEncoder, help_text='Full snapshot: asset details, metadata, tags', null=True),
+        ),
+        migrations.AddIndex(
+            model_name='version',
+            index=django.contrib.postgres.indexes.GinIndex(fields=['snapshot'], name='versions_snapshot_gin_idx', opclasses=['jsonb_path_ops']),
+        ),
+    ]

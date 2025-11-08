@@ -5,11 +5,6 @@ import os  # Used to construct file paths dynamically
 
 
 class Folder(models.Model):
-    """
-    Table: Folders
-    - folder_id: PK, auto increment
-    - parent_folder: self-referential FK (null for root)
-    """
     folder_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     parent_folder = models.ForeignKey(
@@ -64,7 +59,7 @@ class Asset(models.Model):
     name = models.CharField(max_length=255)  # searchable name
     asset_type = models.CharField(max_length=20, choices=ASSET_TYPES)
 
-    # \The actual uploaded file stored locally under MEDIA_ROOT/uploads/assets/
+    # The actual uploaded file stored locally under MEDIA_ROOT/uploads/assets/
     upload_file = models.FileField(upload_to=asset_upload_path, null=True, blank=True)
 
     file_path = models.CharField(max_length=500)
@@ -117,7 +112,32 @@ def version_upload_path(instance, filename):
     """Return upload path for versioned files."""
     return os.path.join('uploads', 'versions', filename)
 
+class AssetFolder(models.Model):
+    """
+    Junction table: Links Assets to Folders (one asset → many folders)
+    """
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='folder_mappings'
+    )
+    folder = models.ForeignKey(
+        Folder,
+        on_delete=models.CASCADE,
+        related_name='asset_mappings'
+    )
 
+    class Meta:
+        db_table = 'asset_folders'
+        unique_together = ('asset', 'folder')  # Prevent duplicates
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['folder']),
+        ]
+
+    def __str__(self):
+        return f"{self.asset.name} → {self.folder.name}"
+    
 class Version(models.Model):
     """
     Table: Versions
@@ -156,6 +176,35 @@ class Version(models.Model):
 
     def __str__(self):
         return f'{self.asset.name} v{self.version_number}'
+    # NEW: Full snapshot
+    snapshot = models.JSONField(null=True, blank=True)
+    # e.g. {
+    #   "asset": {"name": "...", "description": "...", "asset_type": "image"},
+    #   "metadata": [{"key": "author", "value": "John", "data_type": "string"}, ...],
+    #   "tags": ["nature", "forest"]
+    # }
+
+    def save_snapshot(self, asset):
+        """Call this before saving a new version"""
+        metadata = [
+            {
+                "key": m.field.name,
+                "value": m.value,
+                "data_type": m.field.data_type,
+            }
+            for m in asset.metadata.all()
+        ]
+        tags = [at.tag.name for at in asset.asset_tags.all()]
+
+        self.snapshot = {
+            "asset": {
+                "name": asset.name,
+                "description": asset.description or "",
+                "asset_type": asset.asset_type,
+            },
+            "metadata": metadata,
+            "tags": tags,
+        }
 
 
 class Tag(models.Model):
