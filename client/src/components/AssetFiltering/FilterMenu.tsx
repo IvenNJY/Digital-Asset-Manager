@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import React, { useMemo, useState } from "react"
 import {
   Box,
   Button,
@@ -14,6 +14,7 @@ import {
 import { LuFilter } from "react-icons/lu"
 
 const categories = ["image", "video", "document", "3d", "other"]
+
 const tagOptions = [
   "3d",
   "4k",
@@ -31,21 +32,7 @@ const tagOptions = [
   "template",
 ]
 
-function buildQuery(params: {
-  category?: string | null
-  tags?: string[]
-  startDate?: string
-  endDate?: string
-}) {
-  const search = new URLSearchParams()
-  if (params.category) search.set("category", params.category)
-  if (params.tags && params.tags.length) search.set("tags", params.tags.join(","))
-  if (params.startDate) search.set("start_date", params.startDate)
-  if (params.endDate) search.set("end_date", params.endDate)
-  return search.toString()
-}
-
-function FilterMenu() {
+export default function FilterMenu() {
   const [category, setCategory] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [startDate, setStartDate] = useState("")
@@ -56,11 +43,9 @@ function FilterMenu() {
   const toggleTag = (tag: string, checked: boolean) => {
     setSelectedTags((prev) => {
       const next = new Set(prev)
-      if (checked) {
-        next.add(tag)
-      } else {
-        next.delete(tag)
-      }
+      if (checked) next.add(tag)
+      else next.delete(tag)
+      console.log("[FilterMenu] tag toggled:", tag, checked, " -> ", Array.from(next))
       return next
     })
   }
@@ -70,8 +55,6 @@ function FilterMenu() {
     setSelectedTags(new Set())
     setStartDate("")
     setEndDate("")
-
-    // also clear URL params
     try {
       const url = new URL(window.location.href)
       url.searchParams.delete("category")
@@ -79,32 +62,30 @@ function FilterMenu() {
       url.searchParams.delete("start_date")
       url.searchParams.delete("end_date")
       window.history.replaceState({}, "", url.pathname + url.search)
-      // notify listeners that filters were cleared
-      window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: "" } }))
-      console.log("[FilterMenu] filters reset and event dispatched (empty params)")
     } catch (e) {
-      // ignore in SSR or if window not present
+      /* ignore */
     }
+    window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: "" } }))
   }
 
   const applyFilters = () => {
-    const tagsArray = Array.from(selectedTags)
-    const paramsStr = buildQuery({
-      category: category ?? undefined,
-      tags: tagsArray.length ? tagsArray : undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    })
+    const params = new URLSearchParams()
+    if (category) params.append("category", category)
+    if (selectedTags.size) params.append("tags", Array.from(selectedTags).join(","))
+    if (startDate) params.append("start_date", startDate)
+    if (endDate) params.append("end_date", endDate)
 
-    // update URL (no reload) and dispatch event with params
+    const paramsStr = params.toString()
+    console.log("[FilterMenu] applying filters, params:", paramsStr)
+
     try {
       const url = new URL(window.location.href)
-      // remove previous related params
+      // clear previous related params
       url.searchParams.delete("category")
       url.searchParams.delete("tags")
       url.searchParams.delete("start_date")
       url.searchParams.delete("end_date")
-
+      // apply new
       if (paramsStr) {
         const newSearch = new URLSearchParams(paramsStr)
         for (const [k, v] of newSearch.entries()) {
@@ -112,15 +93,11 @@ function FilterMenu() {
         }
       }
       window.history.replaceState({}, "", url.pathname + url.search)
-
-      // debugging log so you can see in console
-      console.log("[FilterMenu] applying filters, params:", paramsStr)
-
-      // emit the event so other components can listen
-      window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: paramsStr } }))
     } catch (e) {
-      console.error("[FilterMenu] applyFilters error:", e)
+      /* ignore */
     }
+
+    window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: paramsStr } }))
   }
 
   return (
@@ -139,25 +116,26 @@ function FilterMenu() {
                 <Text fontSize="md" fontWeight="semibold">
                   Advanced Filters
                 </Text>
-                <Stack gap={1}>
-                  <Text fontWeight="medium">Category</Text>
-                  <HStack wrap="wrap" gap={2}>
-                    {categories.map((name) => {
-                      const isActive = category === name
-                      return (
-                        <Button
-                          key={name}
-                          size="xs"
-                          variant={isActive ? "solid" : "outline"}
-                          borderRadius="full"
-                          onClick={() => setCategory(isActive ? null : name)}
-                        >
-                          {name}
-                        </Button>
-                      )
-                    })}
-                  </HStack>
-                </Stack>
+              </Stack>
+
+              <Stack gap={2}>
+                <Text fontWeight="medium">Asset Type</Text>
+                <HStack wrap="wrap" gap={2}>
+                  {categories.map((name) => {
+                    const isActive = category === name
+                    return (
+                      <Button
+                        key={name}
+                        size="xs"
+                        variant={isActive ? "solid" : "outline"}
+                        borderRadius="full"
+                        onClick={() => setCategory(isActive ? null : name)}
+                      >
+                        {name}
+                      </Button>
+                    )
+                  })}
+                </HStack>
               </Stack>
 
               <Stack gap={2}>
@@ -167,17 +145,23 @@ function FilterMenu() {
                     {tags.map((tag) => {
                       const checked = selectedTags.has(tag)
                       return (
-                        // keep your Checkbox components as they are; just ensure
-                        // onCheckedChange calls toggleTag correctly
-                        <div key={tag} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {/* replace Checkbox.Root with your checkbox component if needed */}
+                        <div
+                          key={tag}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "4px 2px",
+                          }}
+                        >
                           <input
+                            id={`tag-${tag}`}
                             type="checkbox"
                             checked={checked}
                             onChange={(e) => toggleTag(tag, e.target.checked)}
-                            id={`tag-${tag}`}
+                            style={{ width: 16, height: 16, cursor: "pointer" }}
                           />
-                          <label htmlFor={`tag-${tag}`} style={{ textTransform: "capitalize", fontSize: 13 }}>
+                          <label htmlFor={`tag-${tag}`} style={{ textTransform: "capitalize", cursor: "pointer", fontSize: 13 }}>
                             {tag}
                           </label>
                         </div>
@@ -220,5 +204,3 @@ function FilterMenu() {
     </Popover.Root>
   )
 }
-
-export default FilterMenu
