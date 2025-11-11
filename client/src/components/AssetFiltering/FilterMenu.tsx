@@ -37,6 +37,7 @@ export default function FilterMenu() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [sortKey, setSortKey] = useState<"date" | "name" | "size">("date")
 
   const tags = useMemo(() => tagOptions, [])
 
@@ -45,7 +46,7 @@ export default function FilterMenu() {
       const next = new Set(prev)
       if (checked) next.add(tag)
       else next.delete(tag)
-      console.log("[FilterMenu] tag toggled:", tag, checked, " -> ", Array.from(next))
+      console.log("[FilterMenu] tag toggled:", tag, checked, "->", Array.from(next))
       return next
     })
   }
@@ -55,49 +56,60 @@ export default function FilterMenu() {
     setSelectedTags(new Set())
     setStartDate("")
     setEndDate("")
+    setSortKey("date")
+
+    // Clear URL params and notify listeners
     try {
       const url = new URL(window.location.href)
       url.searchParams.delete("category")
+      url.searchParams.delete("categories")
       url.searchParams.delete("tags")
       url.searchParams.delete("start_date")
       url.searchParams.delete("end_date")
+      url.searchParams.delete("sort")
       window.history.replaceState({}, "", url.pathname + url.search)
     } catch (e) {
       /* ignore */
     }
+
     window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: "" } }))
+    window.dispatchEvent(new PopStateEvent("popstate"))
+    console.log("[FilterMenu] filters reset and event dispatched")
   }
 
   const applyFilters = () => {
     const params = new URLSearchParams()
-    if (category) params.append("category", category)
-    if (selectedTags.size) params.append("tags", Array.from(selectedTags).join(","))
-    if (startDate) params.append("start_date", startDate)
-    if (endDate) params.append("end_date", endDate)
+    if (category) params.set("category", category)
+    if (selectedTags.size) params.set("tags", Array.from(selectedTags).join(","))
+    if (startDate) params.set("start_date", startDate)
+    if (endDate) params.set("end_date", endDate)
+    if (sortKey) params.set("sort", sortKey)
 
     const paramsStr = params.toString()
     console.log("[FilterMenu] applying filters, params:", paramsStr)
 
+    // update URL without reload
     try {
       const url = new URL(window.location.href)
-      // clear previous related params
+      // remove old filter keys
       url.searchParams.delete("category")
+      url.searchParams.delete("categories")
       url.searchParams.delete("tags")
       url.searchParams.delete("start_date")
       url.searchParams.delete("end_date")
+      url.searchParams.delete("sort")
       // apply new
       if (paramsStr) {
-        const newSearch = new URLSearchParams(paramsStr)
-        for (const [k, v] of newSearch.entries()) {
-          url.searchParams.set(k, v)
-        }
+        const newParams = new URLSearchParams(paramsStr)
+        for (const [k, v] of newParams.entries()) url.searchParams.set(k, v)
       }
       window.history.replaceState({}, "", url.pathname + url.search)
     } catch (e) {
-      /* ignore */
+      console.error("[FilterMenu] failed to update URL:", e)
     }
 
     window.dispatchEvent(new CustomEvent("filtersApplied", { detail: { params: paramsStr } }))
+    window.dispatchEvent(new PopStateEvent("popstate"))
   }
 
   return (
@@ -187,6 +199,30 @@ export default function FilterMenu() {
                     aria-label="End date"
                   />
                 </HStack>
+              </Stack>
+
+              <Stack gap={2}>
+                <Text fontWeight="medium">Sort by</Text>
+
+                {/* native select used for compatibility */}
+                <div style={{ width: "100%" }}>
+                  <select
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as any)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      background: "transparent",
+                      color: "inherit",
+                    }}
+                  >
+                    <option value="date">Date (Newest → Oldest)</option>
+                    <option value="name">Name (A → Z)</option>
+                    <option value="size">Size (Largest → Smallest)</option>
+                  </select>
+                </div>
               </Stack>
 
               <HStack justify="space-between">
