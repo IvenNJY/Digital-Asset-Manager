@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+"use client"
+
+import React, { useMemo } from "react"
 import {
   Box,
   Button,
-  Checkbox,
   HStack,
   Input,
   Popover,
@@ -13,6 +14,7 @@ import {
 import { LuFilter } from "react-icons/lu"
 
 const categories = ["image", "video", "document", "3d", "other"]
+
 const tagOptions = [
   "3d",
   "4k",
@@ -30,31 +32,43 @@ const tagOptions = [
   "template",
 ]
 
-function FilterMenu() {
-  const [category, setCategory] = useState<string | null>(null)
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+export interface FilterMenuProps {
+  category: string | null
+  onCategoryChange: (category: string | null) => void
+  selectedTags: Set<string>
+  onTagsChange: (tags: Set<string>) => void
+  startDate: string
+  onStartDateChange: (date: string) => void
+  endDate: string
+  onEndDateChange: (date: string) => void
+  sortKey: "date" | "name" | "size"
+  onSortKeyChange: (key: "date" | "name" | "size") => void
+  onApplyFilters: () => void
+  onResetFilters: () => void
+}
+
+export default function FilterMenu({
+  category,
+  onCategoryChange,
+  selectedTags,
+  onTagsChange,
+  startDate,
+  onStartDateChange,
+  endDate,
+  onEndDateChange,
+  sortKey,
+  onSortKeyChange,
+  onApplyFilters,
+  onResetFilters,
+}: FilterMenuProps) {
 
   const tags = useMemo(() => tagOptions, [])
 
   const toggleTag = (tag: string, checked: boolean) => {
-    setSelectedTags((prev) => {
-      const next = new Set(prev)
-      if (checked) {
-        next.add(tag)
-      } else {
-        next.delete(tag)
-      }
-      return next
-    })
-  }
-
-  const resetFilters = () => {
-    setCategory(null)
-    setSelectedTags(new Set())
-    setStartDate("")
-    setEndDate("")
+    const next = new Set(selectedTags)
+    if (checked) next.add(tag)
+    else next.delete(tag)
+    onTagsChange(next)
   }
 
   return (
@@ -73,25 +87,26 @@ function FilterMenu() {
                 <Text fontSize="md" fontWeight="semibold">
                   Advanced Filters
                 </Text>
-                <Stack gap={1}>
-                  <Text fontWeight="medium">Category</Text>
-                  <HStack wrap="wrap" gap={2}>
-                    {categories.map((name) => {
-                      const isActive = category === name
-                      return (
-                        <Button
-                          key={name}
-                          size="xs"
-                          variant={isActive ? "solid" : "outline"}
-                          borderRadius="full"
-                          onClick={() => setCategory(isActive ? null : name)}
-                        >
-                          {name}
-                        </Button>
-                      )
-                    })}
-                  </HStack>
-                </Stack>
+              </Stack>
+
+              <Stack gap={2}>
+                <Text fontWeight="medium">Asset Type</Text>
+                <HStack wrap="wrap" gap={2}>
+                  {categories.map((name) => {
+                    const isActive = category === name
+                    return (
+                      <Button
+                        key={name}
+                        size="xs"
+                        variant={isActive ? "solid" : "outline"}
+                        borderRadius="full"
+                        onClick={() => onCategoryChange(isActive ? null : name)}
+                      >
+                        {name}
+                      </Button>
+                    )
+                  })}
+                </HStack>
               </Stack>
 
               <Stack gap={2}>
@@ -101,17 +116,26 @@ function FilterMenu() {
                     {tags.map((tag) => {
                       const checked = selectedTags.has(tag)
                       return (
-                        <Checkbox.Root
+                        <div
                           key={tag}
-                          checked={checked}
-                          onCheckedChange={(details) => toggleTag(tag, details.checked === true)}
-                          display="flex"
-                          alignItems="center"
-                          gap={2}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "4px 2px",
+                          }}
                         >
-                          <Checkbox.Control />
-                          <Checkbox.Label textTransform="capitalize">{tag}</Checkbox.Label>
-                        </Checkbox.Root>
+                          <input
+                            id={`tag-${tag}`}
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => toggleTag(tag, e.target.checked)}
+                            style={{ width: 16, height: 16, cursor: "pointer" }}
+                          />
+                          <label htmlFor={`tag-${tag}`} style={{ textTransform: "capitalize", cursor: "pointer", fontSize: 13 }}>
+                            {tag}
+                          </label>
+                        </div>
                       )
                     })}
                   </Stack>
@@ -124,23 +148,47 @@ function FilterMenu() {
                   <Input
                     type="date"
                     value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
+                    onChange={(event) => onStartDateChange(event.target.value)}
                     aria-label="Start date"
                   />
                   <Input
                     type="date"
                     value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
+                    onChange={(event) => onEndDateChange(event.target.value)}
                     aria-label="End date"
                   />
                 </HStack>
               </Stack>
 
+              <Stack gap={2}>
+                <Text fontWeight="medium">Sort by</Text>
+
+                {/* native select used for compatibility */}
+                <div style={{ width: "100%" }}>
+                  <select
+                    value={sortKey}
+                    onChange={(e) => onSortKeyChange(e.target.value as "date" | "name" | "size")}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      background: "transparent",
+                      color: "inherit",
+                    }}
+                  >
+                    <option value="date">Date (Newest → Oldest)</option>
+                    <option value="name">Name (A → Z)</option>
+                    <option value="size">Size (Largest → Smallest)</option>
+                  </select>
+                </div>
+              </Stack>
+
               <HStack justify="space-between">
-                <Button variant="ghost" size="sm" onClick={resetFilters}>
+                <Button variant="ghost" size="sm" onClick={onResetFilters}>
                   Reset
                 </Button>
-                <Button size="sm" colorPalette="blue">
+                <Button size="sm" colorScheme="blue" onClick={onApplyFilters}>
                   Apply Filters
                 </Button>
               </HStack>
@@ -151,5 +199,3 @@ function FilterMenu() {
     </Popover.Root>
   )
 }
-
-export default FilterMenu

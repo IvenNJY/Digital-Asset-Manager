@@ -8,6 +8,7 @@ import Header from "@/components/ui/Header";
 import Sidebar from "@/components/ui/Sidebar";
 import ViewType from "@/components/AssetFiltering/ViewType";
 import SearchBar from "@/components/AssetFiltering/SearchBar";
+import { FilterMenuProps } from "@/components/AssetFiltering/FilterMenu";
 
 import { Stack } from "@chakra-ui/react";
 
@@ -21,6 +22,41 @@ export default function DashboardPage() {
 
   //add this state to track sidebar category
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
+
+  // Filter menu state
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sortKey, setSortKey] = useState<"date" | "name" | "size">("date");
+
+  const handleResetFilters = () => {
+    setFilterCategory(null);
+    setSelectedTags(new Set());
+    setStartDate("");
+    setEndDate("");
+    setSortKey("date");
+  };
+
+  const handleApplyFilters = () => {
+    // Filters are applied immediately as state changes
+    // No additional action needed here
+  };
+
+  const filterMenuProps: FilterMenuProps = {
+    category: filterCategory,
+    onCategoryChange: setFilterCategory,
+    selectedTags,
+    onTagsChange: setSelectedTags,
+    startDate,
+    onStartDateChange: setStartDate,
+    endDate,
+    onEndDateChange: setEndDate,
+    sortKey,
+    onSortKeyChange: setSortKey,
+    onApplyFilters: handleApplyFilters,
+    onResetFilters: handleResetFilters,
+  };
 
   return (
     <PrivateRoute>
@@ -40,6 +76,7 @@ export default function DashboardPage() {
               value={searchInput}
               onChange={setSearchInput}
               onSubmit={() => setSearchQuery(searchInput)}
+              filterProps={filterMenuProps}
             />
 
             <ViewType onChange={setView} />
@@ -49,6 +86,11 @@ export default function DashboardPage() {
               view={view}
               searchQuery={searchQuery}
               selectedCategory={selectedCategory}
+              filterCategory={filterCategory}
+              selectedTags={selectedTags}
+              startDate={startDate}
+              endDate={endDate}
+              sortKey={sortKey}
             />
           </Stack>
         </Sidebar>
