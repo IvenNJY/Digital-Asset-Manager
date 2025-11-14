@@ -1,8 +1,8 @@
-import { HStack, Text, Box, Flex, IconButton, Icon ,  Portal, Select, createListCollection} from '@chakra-ui/react'
-import { FiGrid, FiList, FiArrowUp } from "react-icons/fi";    
+import { HStack, Text, Box, Flex, IconButton, Icon } from '@chakra-ui/react'
+import { FiGrid, FiList } from "react-icons/fi";
 import React, { useState } from 'react'
 
-export type ViewMode = "grid" | "list";  // export it so other files can use it
+export type ViewMode = "grid" | "list";
 
 type ViewTypeProps = {
   onChange?: (view: ViewMode) => void
@@ -10,22 +10,12 @@ type ViewTypeProps = {
   totalAssetCount?: number
   initialView?: ViewMode
 }
+
 function ViewType({ onChange, assetCount, totalAssetCount, initialView = "grid" }: ViewTypeProps) {
-  // internal view state, synced with parent via onChange
   const [view, setViewMode] = useState<ViewMode>(initialView);
 
-  // Hide component if no assets
   if (assetCount === undefined || assetCount === 0) return null;
 
-  const viewOptions = createListCollection({
-    items: [
-      { label: "Date", value: "date" },
-      { label: "Name", value: "name" },
-      { label: "Size", value: "size" },
-    ],
-  })
-
-  // function to handle view change
   const handleViewChange = (newView: ViewMode) => {
     setViewMode(newView);
     onChange?.(newView);
@@ -36,53 +26,11 @@ function ViewType({ onChange, assetCount, totalAssetCount, initialView = "grid" 
       <Box w="full">  
         <Flex align="center" justify="space-between">
           <HStack w="full" justify="space-between">
-            {/* Left side: asset count */}
             <Text fontSize="sm" color="gray.600">
               Showing {assetCount} of {totalAssetCount ?? assetCount} asset{(totalAssetCount ?? assetCount) === 1 ? '' : 's'}
             </Text>
 
-            {/* Right Side: sort + view toggle */}
             <HStack gap={2}>
-
-              {/* Sort dropdown */}
-              <Flex
-                align="center"
-                bg="gray.50"
-                _dark={{ bg: "gray.800", borderColor: "gray.700" }}
-                borderWidth="1px"
-                borderColor="gray.200"
-                rounded="md"
-                px={2}
-                py={1}
-              >
-                <FiArrowUp size={14} style={{ marginRight: "6px" }} />
-                <Box fontSize="sm" bg="transparent" border="none" outline="none" cursor="pointer">
-                  <Select.Root collection={viewOptions} size="sm" width="10vw">
-                    <Select.HiddenSelect />
-                    <Select.Control>
-                      <Select.Trigger>
-                        <Select.ValueText placeholder="Select framework" />
-                      </Select.Trigger>
-                      <Select.IndicatorGroup>
-                        <Select.Indicator />
-                      </Select.IndicatorGroup>
-                    </Select.Control>
-                    <Portal>
-                      <Select.Positioner>
-                        <Select.Content>
-                          {viewOptions.items.map((viewOption) => (
-                            <Select.Item item={viewOption} key={viewOption.value}>
-                              {viewOption.label}
-                              <Select.ItemIndicator />
-                            </Select.Item>
-                          ))}
-                        </Select.Content>
-                      </Select.Positioner>
-                    </Portal>
-                  </Select.Root>
-                </Box>
-              </Flex>
-
               {/* View toggle buttons */}
               <HStack
                 bg="gray.50"
@@ -117,7 +65,6 @@ function ViewType({ onChange, assetCount, totalAssetCount, initialView = "grid" 
                   <Icon as={FiList} />
                 </IconButton>
               </HStack>
-
             </HStack>
           </HStack>
         </Flex>  

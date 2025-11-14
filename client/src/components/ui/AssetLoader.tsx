@@ -9,6 +9,11 @@ interface AssetLoaderProps {
   searchQuery?: string;
   selectedCategory?: 'all' | 'images' | 'videos' | 'documents' | 'glb' | 'others'; // 👈 add this
   folderId?: number; // optional filter by folder
+  filterCategory?: string | null;
+  selectedTags?: Set<string>;
+  startDate?: string;
+  endDate?: string;
+  sortKey?: 'date' | 'name' | 'size';
 }
 
 type ApiAsset = {
@@ -65,7 +70,7 @@ const buildUrl = (path: string) => {
   return `${backendBase}/media/${path}`
 }
 
-function AssetLoader({ view, searchQuery = '', selectedCategory = 'all', folderId }: AssetLoaderProps) {
+function AssetLoader({ view, searchQuery = '', selectedCategory = 'all', folderId, filterCategory, selectedTags = new Set(), startDate = '', endDate = '', sortKey = 'date' }: AssetLoaderProps) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   // preview is handled inside AssetMenu; no preview state needed here
@@ -130,29 +135,62 @@ function AssetLoader({ view, searchQuery = '', selectedCategory = 'all', folderI
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
-  const filteredAssets = assets.filter(asset => {
-    // Filter by search query
-    const matchesQuery = normalizedQuery
-      ? `${asset.name} ${asset.description} ${asset.type} ${asset.tags.join(' ')}`.toLowerCase().includes(normalizedQuery)
-      : true
-
-    // Filter by selected category from sidebar
-    const matchesCategory =
-      selectedCategory === 'all' ||
-      (selectedCategory === 'images' && asset.type === 'image') ||
-      (selectedCategory === 'videos' && asset.type === 'video') ||
-      (selectedCategory === 'documents' && asset.type === 'document') ||
-      (selectedCategory === 'glb' && asset.type === 'glb') ||
-      (selectedCategory === 'others' && !['image', 'video', 'document', 'glb'].includes(asset.type))
-
-    // Filter by folder if provided
-    const matchesFolder =
-      typeof folderId === 'number'
-        ? (asset.folderIds ?? []).includes(folderId)
+  const filteredAssets = assets
+    .filter(asset => {
+      // Filter by search query
+      const matchesQuery = normalizedQuery
+        ? `${asset.name} ${asset.description} ${asset.type} ${asset.tags.join(' ')}`.toLowerCase().includes(normalizedQuery)
         : true
 
-    return matchesQuery && matchesCategory && matchesFolder
-  })
+      // Filter by selected category from sidebar
+      const matchesCategory =
+        selectedCategory === 'all' ||
+        (selectedCategory === 'images' && asset.type === 'image') ||
+        (selectedCategory === 'videos' && asset.type === 'video') ||
+        (selectedCategory === 'documents' && asset.type === 'document') ||
+        (selectedCategory === 'glb' && asset.type === 'glb') ||
+        (selectedCategory === 'others' && !['image', 'video', 'document', 'glb'].includes(asset.type))
+
+      // Filter by folder if provided
+      const matchesFolder =
+        typeof folderId === 'number'
+          ? (asset.folderIds ?? []).includes(folderId)
+          : true
+
+      // Filter by filter menu category if provided
+      const matchesFilterCategory =
+        !filterCategory ||
+        (filterCategory === 'image' && asset.type === 'image') ||
+        (filterCategory === 'video' && asset.type === 'video') ||
+        (filterCategory === 'document' && asset.type === 'document') ||
+        (filterCategory === '3d' && asset.type === 'glb') ||
+        (filterCategory === 'other' && !['image', 'video', 'document', 'glb'].includes(asset.type))
+
+      // Filter by tags
+      const matchesTags =
+        selectedTags.size === 0 ||
+        asset.tags.some(tag => selectedTags.has(tag))
+
+      // Filter by date range
+      const assetDate = asset.uploaded_at ? new Date(asset.uploaded_at).getTime() : 0
+      const matchesDateRange =
+        (!startDate || assetDate >= new Date(startDate).getTime()) &&
+        (!endDate || assetDate <= new Date(endDate).getTime())
+
+      return matchesQuery && matchesCategory && matchesFolder && matchesFilterCategory && matchesTags && matchesDateRange
+    })
+    .sort((a, b) => {
+      if (sortKey === 'date') {
+        const dateA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0
+        const dateB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0
+        return dateB - dateA // Newest first
+      } else if (sortKey === 'name') {
+        return a.name.localeCompare(b.name) // A-Z
+      } else if (sortKey === 'size') {
+        return (b.size_bytes ?? 0) - (a.size_bytes ?? 0) // Largest first
+      }
+      return 0
+    })
 
   if (loading) return <Text fontSize="sm">Loading assets…</Text>
   if (filteredAssets.length === 0) return <Text fontSize="sm">No assets match your search.</Text>
