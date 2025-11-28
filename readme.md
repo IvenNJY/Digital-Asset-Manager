@@ -2,6 +2,11 @@
 
 # Self-Hosted Digital Asset Manager
 
+<img width="1901" height="879" alt="image" src="https://github.com/user-attachments/assets/ff759a7d-ff97-497c-9032-ad008d8d23b9" />
+
+
+<a align="center" href="https://damshowcase.vercel.app/">View Showcase</a>
+
 **Self‑hosted all your digital files** – images, videos, documents, 3D models (GLB) and more. Keep full control of storage, version history, metadata and user access under your own infrastructure.
 
 <p align="center">
