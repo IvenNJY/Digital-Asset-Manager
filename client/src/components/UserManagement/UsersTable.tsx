@@ -201,18 +201,12 @@ function UsersTable() {
         header: "Actions",
         enableSorting: false,
         enableColumnFilter: false,
-        cell: ({ row }) => {
-          if (row.original.role === "admin") {
-            return <Text fontSize="sm" color="gray.500">Protected</Text>
-          }
-
-          return (
-            <HStack gap={3}>
-              <EditUserButton user={row.original} onUpdated={handleUserUpdated} />
-              <DeleteUserButton user={row.original} onDeleted={handleUserDeleted} />
-            </HStack>
-          )
-        },
+        cell: ({ row }) => (
+          <HStack gap={3}>
+            <EditUserButton user={row.original} onUpdated={handleUserUpdated} />
+            <DeleteUserButton user={row.original} onDeleted={handleUserDeleted} />
+          </HStack>
+        ),
       },
     ],
     [filterConfigs, filtersExpanded, handleUserDeleted, handleUserUpdated]

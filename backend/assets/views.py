@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from django.db import transaction, models
 from django.db.models import Max
 from django.http import JsonResponse
@@ -16,35 +15,6 @@ from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
 # -----------------------------
 def _is_admin_or_editor(user):
     return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
-
-
-ALLOWED_UPLOAD_EXTENSIONS = {
-    ".glb", ".gltf",
-    ".jpg", ".jpeg", ".png", ".gif", ".webp",
-    ".mp4", ".webm", ".mov", ".avi",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-}
-
-DANGEROUS_CONTENT_TYPES = {
-    "text/html",
-    "application/xhtml+xml",
-    "image/svg+xml",
-    "text/xml",
-    "application/xml",
-}
-
-
-def _validate_upload_file(upload_file):
-    extension = Path(upload_file.name).suffix.lower()
-    if extension not in ALLOWED_UPLOAD_EXTENSIONS:
-        return "Unsupported file type."
-
-    content_type = (upload_file.content_type or "").lower()
-    if content_type in DANGEROUS_CONTENT_TYPES:
-        return "This file content type is not allowed."
-
-    return None
-
 
 # NEW: Helper to get/create root "media" folder
 def _get_media_root(user):
@@ -68,10 +38,6 @@ def upload_asset_view(request):
     upload_file = request.FILES.get("upload_file")
     if not upload_file:
         return JsonResponse({"detail": "upload_file is required."}, status=400)
-
-    upload_error = _validate_upload_file(upload_file)
-    if upload_error:
-        return JsonResponse({"detail": upload_error}, status=400)
 
     # Get optional fields
     name = request.POST.get("name") or upload_file.name.split("/")[-1]
@@ -381,10 +347,6 @@ def upload_version_view(request, asset_id):
     upload_file = request.FILES.get("upload_file")
     if not upload_file:
         return JsonResponse({"detail": "upload_file is required."}, status=400)
-
-    upload_error = _validate_upload_file(upload_file)
-    if upload_error:
-        return JsonResponse({"detail": upload_error}, status=400)
 
     changes_note = request.POST.get("changes_note", "")
 
