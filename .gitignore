@@ -3,7 +3,3 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
-.env.*
-!.env.example
-payload2.html
