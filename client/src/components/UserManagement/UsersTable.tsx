@@ -65,7 +65,7 @@ function UsersTable() {
   const [filtersExpanded, setFiltersExpanded] = useState(false)
 
   const currentUser = useAuthUser()
-  const isSuperAdmin = currentUser?.is_superuser === true
+  const isSuperAdmin = currentUser?.is_superuser === true || currentUser?.role === "superadmin"
 
   const isMountedRef = useRef(true)
 
@@ -213,6 +213,7 @@ function UsersTable() {
           //always protect super admin accounts
           if (
             targetUser.is_superuser === true ||
+            targetUser.role === "superadmin" ||
             (targetUser.role === "admin" && !isSuperAdmin)
           ) {
             return <Text fontSize="sm" color="gray.500">Protected</Text>

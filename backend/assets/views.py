@@ -15,8 +15,11 @@ from .serializers import AssetSerializer, FolderSerializer, VersionSerializer
 # Helper: Check user role
 # -----------------------------
 def _is_admin_or_editor(user):
-    return user.is_authenticated and user.groups.filter(name__in=["admin", "editor"]).exists()
-
+    return (
+        user.is_authenticated
+        and user.is_active
+        and (user.is_superuser or user.groups.filter(name__in=["admin", "editor"]).exists())
+    )
 
 ALLOWED_UPLOAD_EXTENSIONS = {
     ".glb", ".gltf",
